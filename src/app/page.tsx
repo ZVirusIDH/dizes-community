@@ -74,7 +74,7 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [dice, setDice] = useState<any[]>([]);
+  const [dice, setDice] = useState<any[] | null>(null);
   const [activeTab, setActiveTab] = useState<"trending" | "latest">("trending");
 
   useEffect(() => {
@@ -112,16 +112,22 @@ export default function Home() {
   }, []);
 
   const fetchDice = async (sort: "trending" | "latest" = activeTab) => {
-    let query = supabase.from("dice_packs").select("*").is("deleted_at", null);
-    
-    if (sort === "trending") {
-      query = query.order("downloads", { ascending: false });
-    } else {
-      query = query.order("created_at", { ascending: false });
-    }
+    try {
+      let query = supabase.from("dice_packs").select("*").is("deleted_at", null);
+      
+      if (sort === "trending") {
+        query = query.order("downloads", { ascending: false });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
 
-    const { data } = await query.limit(100);
-    if (data) setDice(data);
+      const { data, error } = await query.limit(100);
+      if (error) throw error;
+      setDice(data || []);
+    } catch (err) {
+      console.error("Error fetching dice:", err);
+      setDice([]); // Stop loading state
+    }
   };
 
   const incrementDownload = async (id: string, currentDownloads: number) => {
@@ -326,7 +332,7 @@ export default function Home() {
 
         {/* Grid */}
         <div className={`grid gap-3 ${gridColsClass} ${viewMode === "list" ? "grid-cols-1" : ""}`}>
-          {dice.length === 0 ? (
+          {dice === null ? (
             Array.from({ length: columns * 2 }).map((_, i) => (
               <div key={i} className="bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 animate-pulse">
                 <div className="h-3 w-2/3 bg-white/5 rounded-full mb-3" />
@@ -334,6 +340,11 @@ export default function Home() {
                 <div className="h-2 w-1/2 bg-white/5 rounded-full" />
               </div>
             ))
+          ) : dice.length === 0 ? (
+            <div className="col-span-full py-20 text-center">
+              <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
+              <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">No se encontraron dados</p>
+            </div>
           ) : (
             dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
               <motion.div key={die.id} whileHover={{ y: -2 }} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"}`}>
