@@ -168,6 +168,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   };
 
   const handleUpload = async () => {
+    if (status === "uploading") return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       setStatus("error");
