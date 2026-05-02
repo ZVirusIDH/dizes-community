@@ -76,6 +76,8 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dice, setDice] = useState<any[] | null>(null);
   const [activeTab, setActiveTab] = useState<"trending" | "latest">("trending");
+  const [pageSize, setPageSize] = useState(20);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => {
     setIsMounted(true);
@@ -111,9 +113,9 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchDice = async (sort: "trending" | "latest" = activeTab) => {
+  const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize) => {
     try {
-      let query = supabase.from("dice_packs").select("*").is("deleted_at", null);
+      let query = supabase.from("dice_packs").select("*", { count: "exact" }).is("deleted_at", null);
       
       if (sort === "trending") {
         query = query.order("downloads", { ascending: false });
@@ -121,12 +123,15 @@ export default function Home() {
         query = query.order("created_at", { ascending: false });
       }
 
-      const { data, error } = await query.limit(100);
+      const from = page * size;
+      const to = from + size - 1;
+
+      const { data, error } = await query.range(from, to);
       if (error) throw error;
       setDice(data || []);
     } catch (err) {
       console.error("Error fetching dice:", err);
-      setDice([]); // Stop loading state
+      setDice([]); 
     }
   };
 
@@ -418,6 +423,44 @@ export default function Home() {
               </motion.div>
             ))
           )}
+        </div>
+
+        {/* Pagination & Page Size */}
+        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-white/5 pt-8">
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{lang === "es" ? "Por página" : "Per page"}</span>
+            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
+              {[10, 20, 30].map(size => (
+                <button 
+                  key={size} 
+                  onClick={() => { setPageSize(size); setCurrentPage(0); fetchDice(activeTab, 0, size); }}
+                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${pageSize === size ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button 
+              disabled={currentPage === 0}
+              onClick={() => { const p = currentPage - 1; setCurrentPage(p); fetchDice(activeTab, p); }}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
+            >
+              {lang === "es" ? "Anterior" : "Prev"}
+            </button>
+            <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-2 rounded-xl border border-blue-500/20">
+              {currentPage + 1}
+            </span>
+            <button 
+              disabled={(dice?.length || 0) < pageSize}
+              onClick={() => { const p = currentPage + 1; setCurrentPage(p); fetchDice(activeTab, p); }}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
+            >
+              {lang === "es" ? "Siguiente" : "Next"}
+            </button>
+          </div>
         </div>
       </main>
 
