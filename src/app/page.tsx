@@ -120,7 +120,7 @@ export default function Home() {
       query = query.order("created_at", { ascending: false });
     }
 
-    const { data } = await query;
+    const { data } = await query.limit(100);
     if (data) setDice(data);
   };
 
@@ -326,74 +326,86 @@ export default function Home() {
 
         {/* Grid */}
         <div className={`grid gap-3 ${gridColsClass} ${viewMode === "list" ? "grid-cols-1" : ""}`}>
-          {dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
-            <motion.div key={die.id} whileHover={{ y: -2 }} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-3"}`}>
-              
-              {/* Top: Name */}
-              <div className="min-w-0">
-                <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight">{die.name}</h4>
+          {dice.length === 0 ? (
+            Array.from({ length: columns * 2 }).map((_, i) => (
+              <div key={i} className="bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 animate-pulse">
+                <div className="h-3 w-2/3 bg-white/5 rounded-full mb-3" />
+                <div className="aspect-square w-full bg-white/5 rounded-xl mb-3" />
+                <div className="h-2 w-1/2 bg-white/5 rounded-full" />
               </div>
-
-              {/* Middle: Dice Preview */}
-              <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full"}`}>
-                 <div className={`rounded-lg flex items-center justify-center text-white font-black overflow-hidden shadow-2xl ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} style={{ backgroundColor: die.color }}>
-                   {die.preview_face ? (
-                     die.preview_face.includes("<svg") ? (
-                       <div className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} dangerouslySetInnerHTML={{ __html: die.preview_face }} />
-                     ) : (
-                       <span>{die.preview_face}</span>
-                     )
-                   ) : (
-                     die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : die.type.replace("D", "")
-                   )}
-                 </div>
-                 <div className="absolute top-2 right-2 flex flex-col gap-1">
-                    <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black text-zinc-400 uppercase border border-white/5">{die.type}</span>
-                 </div>
-              </div>
-
-              {/* Below Preview: Author and Stats */}
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[9px] text-zinc-500 font-bold truncate opacity-60">@{die.author}</p>
-                <div className="flex items-center gap-1.5 bg-blue-500/10 px-1.5 py-0.5 rounded-md border border-blue-500/20">
-                  <Download className="w-2.5 h-2.5 text-blue-500" />
-                  <span className="text-[9px] font-black text-blue-400">{die.downloads || 0}</span>
-                </div>
-              </div>
-
-              {/* Bottom: Action Buttons */}
-              <div className="flex flex-col gap-1.5 mt-auto">
-                <button 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    incrementDownload(die.id, die.downloads);
-                    setSelectedPack(die); 
-                  }} 
-                  className="w-full brand-gradient hover:brightness-110 px-3 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
-                >
-                  <Download className="w-3 h-3" />
-                  {t.getConfig}
-                </button>
+            ))
+          ) : (
+            dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
+              <motion.div key={die.id} whileHover={{ y: -2 }} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"}`}>
                 
-                {isAdmin && (
-                  <div className="flex gap-1.5">
+                {/* Top: Name */}
+                <div className="min-w-0">
+                  <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
+                </div>
+
+                {/* Middle: Dice Preview */}
+                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full"}`}>
+                   <div className={`rounded-lg flex items-center justify-center text-white font-black overflow-hidden shadow-2xl ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} style={{ backgroundColor: die.color }}>
+                     {die.preview_face ? (
+                       die.preview_face.includes("<svg") ? (
+                         <div className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} dangerouslySetInnerHTML={{ __html: die.preview_face }} />
+                       ) : (
+                         <span>{die.preview_face}</span>
+                       )
+                     ) : (
+                       die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : die.type.replace("D", "")
+                     )}
+                   </div>
+                   <div className="absolute top-2 right-2">
+                      <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black text-zinc-400 uppercase border border-white/5">{die.type}</span>
+                   </div>
+                </div>
+
+                {/* Below Preview: Author */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[9px] text-zinc-600 font-bold truncate opacity-60">@{die.author}</p>
+                </div>
+
+                {/* Bottom: Action Buttons & Stats */}
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <div className="flex gap-1">
                     <button 
-                      onClick={(e) => { e.stopPropagation(); renameDice(die.id, die.name); }} 
-                      className="flex-1 bg-white/5 hover:bg-zinc-800 text-zinc-400 hover:text-white p-2 rounded-xl text-[8px] font-black border border-white/5 transition-all"
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        incrementDownload(die.id, die.downloads);
+                        setSelectedPack(die); 
+                      }} 
+                      className="flex-1 brand-gradient hover:brightness-110 px-3 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
                     >
-                      EDIT
+                      <Download className="w-3 h-3" />
+                      {t.getConfig}
                     </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); deleteDice(die.id); }} 
-                      className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-2 rounded-xl border border-blue-500/20 shadow-inner">
+                      <Download className="w-3 h-3 text-blue-500" />
+                      <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+                  
+                  {isAdmin && (
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); renameDice(die.id, die.name); }} 
+                        className="flex-1 bg-white/5 hover:bg-zinc-800 text-zinc-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-white/5 transition-all"
+                      >
+                        EDIT
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); deleteDice(die.id); }} 
+                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </main>
 

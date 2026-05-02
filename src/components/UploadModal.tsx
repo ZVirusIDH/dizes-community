@@ -311,8 +311,19 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
 
                 <div className="flex gap-4">
                   <button onClick={() => { setFile(null); setRawCode(""); setStatus("idle"); }} className="flex-1 py-4 rounded-2xl bg-zinc-800 font-bold text-xs uppercase tracking-widest">{dict.cancel}</button>
-                  <button onClick={handleUpload} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest brand-gradient shadow-xl ${status === "uploading" ? "opacity-50" : ""}`}>
-                    {status === "uploading" ? "..." : dict.publish}
+                  <button 
+                    disabled={status === "uploading"}
+                    onClick={handleUpload} 
+                    className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest brand-gradient shadow-xl flex items-center justify-center gap-3 transition-all ${status === "uploading" ? "opacity-50 cursor-not-allowed" : "hover:brightness-110 active:scale-95"}`}
+                  >
+                    {status === "uploading" ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {lang === "es" ? "Publicando..." : "Publishing..."}
+                      </>
+                    ) : (
+                      dict.publish
+                    )}
                   </button>
                 </div>
               </div>
