@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, Grid2X2, List, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2 } from "lucide-react";
+import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, Grid2X2, List, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
@@ -79,6 +79,8 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"trending" | "latest">("trending");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [selectedDice, setSelectedDice] = useState<string[]>([]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -116,9 +118,15 @@ export default function Home() {
 
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
-  const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize) => {
+  const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
     try {
-      let query = supabase.from("dice_packs").select("*", { count: "exact" }).is("deleted_at", null);
+      let query = supabase.from("dice_packs").select("*", { count: "exact" });
+      
+      if (onlyDeleted) {
+        query = query.not("deleted_at", "is", null);
+      } else {
+        query = query.is("deleted_at", null);
+      }
       
       if (sort === "trending") {
         query = query.order("downloads", { ascending: false });
@@ -143,9 +151,27 @@ export default function Home() {
     fetchDice();
   };
 
-  const loadUserProfile = async (userId: string) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (data) setUserProfile(data);
+  const permanentDelete = async (ids: string[]) => {
+    if (!isAdmin) return;
+    if (!confirm(lang === "es" ? `¿Seguro que quieres borrar PERMANENTEMENTE ${ids.length} elementos?` : `Are you sure you want to PERMANENTLY delete ${ids.length} items?`)) return;
+    const { error } = await supabase.from("dice_packs").delete().in("id", ids);
+    if (!error) {
+      setSelectedDice([]);
+      fetchDice();
+    } else alert(error.message);
+  };
+
+  const restoreDice = async (ids: string[]) => {
+    if (!isAdmin) return;
+    const { error } = await supabase.from("dice_packs").update({ deleted_at: null }).in("id", ids);
+    if (!error) {
+      setSelectedDice([]);
+      fetchDice();
+    } else alert(error.message);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedDice(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
   const deleteDice = async (id: string) => {
@@ -250,12 +276,21 @@ export default function Home() {
           </button>
 
           {user?.email === ADMIN_EMAIL && (
-            <button 
-              onClick={() => setIsAdmin(!isAdmin)} 
-              className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}
-            >
-              {isAdmin ? "ADMIN MODE" : "USER MODE"}
-            </button>
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => { const s = !showDeleted; setShowDeleted(s); setCurrentPage(0); fetchDice(activeTab, 0, pageSize, s); }} 
+                className={`p-2 rounded-lg border transition-all ${showDeleted ? "bg-red-600 border-red-500 text-white shadow-lg" : "bg-white/5 border-white/10 text-zinc-500"}`}
+                title={lang === "es" ? "Papelera" : "Recycle Bin"}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={() => setIsAdmin(!isAdmin)} 
+                className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}
+              >
+                {isAdmin ? "ADMIN MODE" : "USER MODE"}
+              </button>
+            </div>
           )}
           
           <button 
@@ -307,6 +342,25 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Admin Toolbar */}
+        {isAdmin && showDeleted && (
+          <section className="mb-6 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{lang === "es" ? "MODO PAPELERA" : "RECYCLE BIN MODE"}</span>
+              <span className="text-zinc-500 text-[10px] font-bold">{selectedDice.length} {lang === "es" ? "seleccionados" : "selected"}</span>
+            </div>
+            <div className="flex gap-2">
+               {selectedDice.length > 0 && (
+                 <>
+                   <button onClick={() => restoreDice(selectedDice)} className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20">{lang === "es" ? "Restaurar" : "Restore"}</button>
+                   <button onClick={() => permanentDelete(selectedDice)} className="bg-red-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20">{lang === "es" ? "Borrar Selección" : "Delete Selected"}</button>
+                 </>
+               )}
+               <button onClick={() => permanentDelete(dice?.map(d => d.id) || [])} className="bg-zinc-800 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 hover:bg-red-600 transition-all">{lang === "es" ? "Vaciar Todo" : "Clear All"}</button>
+            </div>
+          </section>
+        )}
+
         {/* Toolbar */}
         <section className="mb-6 py-2 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-1">
@@ -353,15 +407,25 @@ export default function Home() {
           ) : dice.length === 0 ? (
             <div className="col-span-full py-20 text-center">
               <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-              <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">No se encontraron dados</p>
+              <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
             </div>
           ) : (
             dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
-              <motion.div key={die.id} whileHover={{ y: -2 }} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"}`}>
+              <motion.div 
+                key={die.id} 
+                whileHover={{ y: -2 }} 
+                onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
+                className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
+              >
                 
-                {/* Top: Name */}
-                <div className="min-w-0">
+                {/* Top: Name & Multi-select Checkbox */}
+                <div className="flex items-center justify-between gap-2 min-w-0">
                   <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
+                  {isAdmin && showDeleted && (
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
+                      {selectedDice.includes(die.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
+                    </div>
+                  )}
                 </div>
 
                 {/* Middle: Dice Preview */}
@@ -389,24 +453,41 @@ export default function Home() {
 
                 {/* Bottom: Action Buttons & Stats */}
                 <div className="flex flex-col gap-1.5 mt-1">
-                  <div className="flex gap-1 items-stretch">
-                    <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        incrementDownload(die.id, die.downloads);
-                        setSelectedPack(die); 
-                      }} 
-                      className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
-                      <Download className="w-3 h-3 text-blue-500" />
-                      <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
+                  {!showDeleted ? (
+                    <div className="flex gap-1 items-stretch">
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          incrementDownload(die.id, die.downloads);
+                          setSelectedPack(die); 
+                        }} 
+                        className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
+                        <Download className="w-3 h-3 text-blue-500" />
+                        <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); restoreDice([die.id]); }} 
+                        className="flex-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-blue-500/20 transition-all uppercase"
+                      >
+                        {lang === "es" ? "Restaurar" : "Restore"}
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); permanentDelete([die.id]); }} 
+                        className="flex-1 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all uppercase"
+                      >
+                        {lang === "es" ? "Borrar" : "Delete"}
+                      </button>
+                    </div>
+                  )}
                   
-                  {isAdmin && (
+                  {isAdmin && !showDeleted && (
                     <div className="flex gap-1">
                       <button 
                         onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} 
