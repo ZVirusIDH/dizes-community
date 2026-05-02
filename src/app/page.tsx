@@ -74,12 +74,13 @@ export default function Home() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dice, setDice] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"trending" | "latest">("trending");
 
   useEffect(() => {
     setIsMounted(true);
     const browserLang = navigator.language.split("-")[0];
     if (browserLang === "en") setLang("en");
-    fetchDice();
+    fetchDice(activeTab);
 
     // Session check
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -100,9 +101,22 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const fetchDice = async () => {
-    const { data } = await supabase.from("dice_packs").select("*").is("deleted_at", null).order("created_at", { ascending: false });
+  const fetchDice = async (sort: "trending" | "latest" = activeTab) => {
+    let query = supabase.from("dice_packs").select("*").is("deleted_at", null);
+    
+    if (sort === "trending") {
+      query = query.order("downloads", { ascending: false });
+    } else {
+      query = query.order("created_at", { ascending: false });
+    }
+
+    const { data } = await query;
     if (data) setDice(data);
+  };
+
+  const incrementDownload = async (id: string, currentDownloads: number) => {
+    await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
+    fetchDice();
   };
 
   const loadUserProfile = async (userId: string) => {
@@ -269,9 +283,16 @@ export default function Home() {
         {/* Toolbar */}
         <section className="mb-6 py-2 flex items-center justify-between border-b border-white/5">
           <div className="flex items-center gap-1">
-             {[t.trending, t.latest].map((tab, i) => (
-               <button key={tab} className={`px-2 py-1 rounded text-[10px] font-black tracking-widest ${i === 0 ? "text-blue-500" : "text-zinc-500"}`}>
-                 {tab}
+             {[
+               { id: "trending", label: t.trending },
+               { id: "latest", label: t.latest }
+             ].map((tab) => (
+               <button 
+                 key={tab.id} 
+                 onClick={() => { setActiveTab(tab.id as any); fetchDice(tab.id as any); }}
+                 className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-zinc-500 hover:text-white"}`}
+               >
+                 {tab.label}
                </button>
              ))}
           </div>
@@ -316,7 +337,16 @@ export default function Home() {
                   <p className="text-[9px] text-zinc-600 font-medium truncate">@{die.author}</p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <button onClick={(e) => { e.stopPropagation(); setSelectedPack(die); }} className="bg-white/5 hover:bg-blue-600 px-2 py-1 rounded-md text-[8px] font-black transition-colors">{t.getConfig}</button>
+                  <button 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      incrementDownload(die.id, die.downloads);
+                      setSelectedPack(die); 
+                    }} 
+                    className="bg-white/5 hover:bg-blue-600 px-2 py-1 rounded-md text-[8px] font-black transition-colors"
+                  >
+                    {t.getConfig}
+                  </button>
                   {isAdmin && (
                     <div className="flex gap-1">
                       <button 
