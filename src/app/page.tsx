@@ -379,19 +379,18 @@ export default function Home() {
 
                 {/* Bottom: Action Buttons & Stats */}
                 <div className="flex flex-col gap-1.5 mt-1">
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 items-stretch">
                     <button 
                       onClick={(e) => { 
                         e.stopPropagation(); 
                         incrementDownload(die.id, die.downloads);
                         setSelectedPack(die); 
                       }} 
-                      className="flex-1 brand-gradient hover:brightness-110 px-3 py-2 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-500/10"
+                      className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
                     >
-                      <Download className="w-3 h-3" />
-                      {t.getConfig}
+                      <Download className="w-4 h-4" />
                     </button>
-                    <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-2 rounded-xl border border-blue-500/20 shadow-inner">
+                    <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
                       <Download className="w-3 h-3 text-blue-500" />
                       <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
                     </div>
