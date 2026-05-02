@@ -146,7 +146,10 @@ export default function Home() {
     }
   };
 
-  const incrementDownload = async (id: string, currentDownloads: number) => {
+  const incrementDownload = async (id: string, currentDownloads: number, shareCode?: string) => {
+    if (shareCode) {
+      window.location.href = `dizes://community?code=${shareCode}`;
+    }
     await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
     fetchDice();
   };
@@ -458,7 +461,7 @@ export default function Home() {
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          incrementDownload(die.id, die.downloads);
+                          incrementDownload(die.id, die.downloads, die.share_code);
                           setSelectedPack(die); 
                         }} 
                         className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
