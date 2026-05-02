@@ -24,11 +24,12 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
       const binData = atob(base64str);
       const ui8Data = new Uint8Array(binData.length);
       for (let i = 0; i < binData.length; i++) ui8Data[i] = binData.charCodeAt(i);
+      // @ts-ignore
       const stream = new Blob([ui8Data]).stream().pipeThrough(new DecompressionStream("gzip"));
       const response = new Response(stream);
       return await response.text();
     } catch (e) {
-      return atob(base64str);
+      try { return atob(base64str); } catch { return ""; }
     }
   };
 
