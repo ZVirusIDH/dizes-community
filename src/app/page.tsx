@@ -183,12 +183,14 @@ export default function Home() {
           </div>
           <span className={`font-black text-base tracking-tighter ${isForcedMobile ? "hidden" : "hidden lg:inline"}`}>Dizes <span className="text-blue-500">Community</span></span>
           
-          <button 
-            onClick={() => setIsForcedMobile(!isForcedMobile)}
-            className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}
-          >
-            {isForcedMobile ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
-          </button>
+          {isAdmin && (
+            <button 
+              onClick={() => setIsForcedMobile(!isForcedMobile)}
+              className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}
+            >
+              {isForcedMobile ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
+            </button>
+          )}
         </div>
 
         {/* Barra de Búsqueda Integrada */}
