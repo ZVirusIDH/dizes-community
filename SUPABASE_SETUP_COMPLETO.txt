@@ -1,0 +1,51 @@
+-- 1. AÑADIR COLUMNAS DE CONTROL A LA TABLA DICE_PACKS
+ALTER TABLE dice_packs ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users;
+ALTER TABLE dice_packs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE;
+
+-- 2. CREAR LA TABLA DE PERFILES PARA LOS USUARIOS
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  username TEXT,
+  avatar_url TEXT,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. HABILITAR SEGURIDAD (RLS) EN LA TABLA DE PERFILES
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+-- Limpiar políticas anteriores por si acaso
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+
+-- Crear nuevas políticas de acceso
+CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles 
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own profile." ON public.profiles 
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "Users can update their own profile." ON public.profiles 
+  FOR UPDATE USING (auth.uid() = id);
+
+-- 4. FUNCIÓN Y TRIGGER PARA CREAR PERFIL AUTOMÁTICAMENTE AL REGISTRARSE
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, username, avatar_url)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)), 
+    new.raw_user_meta_data->>'avatar_url'
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Eliminar trigger si ya existe
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+-- Crear el trigger que vincula Auth con Profiles
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

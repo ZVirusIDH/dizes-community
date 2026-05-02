@@ -1,0 +1,347 @@
+"use client";
+
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, Grid2X2, List, LayoutGrid, LayoutList, Smartphone, Monitor, Package } from "lucide-react";
+import { useState, useEffect } from "react";
+import UploadModal from "@/components/UploadModal";
+import DiceViewerModal from "@/components/DiceViewerModal";
+import AuthModal from "@/components/AuthModal";
+import ProfileModal from "@/components/ProfileModal";
+import { supabase } from "@/lib/supabase";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+
+type Language = "es" | "en";
+type ViewMode = "grid" | "list";
+
+const translations = {
+  es: {
+    heroTitle1: "Bienvenido a la",
+    heroTitle2: "Comunidad de Dizes",
+    heroDesc: "Comparte y descarga configuraciones de dados. Diseñada para miles de creadores.",
+    searchPlaceholder: "Buscar...",
+    featuredPack: "DESTACADO",
+    trending: "TENDENCIAS",
+    latest: "ÚLTIMOS",
+    topRated: "TOP",
+    advFilters: "Filtros",
+    uploadBtn: "Subir",
+    signIn: "Entrar",
+    featured: "Inicio",
+    categories: "Categorías",
+    getConfig: "BAJAR",
+    loadMore: "Ver más",
+    footerText: "© 2026 Dizes Community.",
+    viewMode: "Ver",
+    columns: "Columnas"
+  },
+  en: {
+    heroTitle1: "Welcome to",
+    heroTitle2: "Dizes Community",
+    heroDesc: "Share and download dice configurations. Built for thousands of creators.",
+    searchPlaceholder: "Search...",
+    featuredPack: "FEATURED",
+    trending: "TRENDING",
+    latest: "LATEST",
+    topRated: "TOP",
+    advFilters: "Filters",
+    uploadBtn: "Upload",
+    signIn: "Sign In",
+    featured: "Home",
+    categories: "Categories",
+    getConfig: "GET",
+    loadMore: "Load More",
+    footerText: "© 2026 Dizes Community.",
+    viewMode: "View",
+    columns: "Cols"
+  }
+};
+
+export default function Home() {
+  const ADMIN_EMAIL = "zvirus@gmail.com"; // Email maestro del administrador
+  const [lang, setLang] = useState<Language>("es");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<any | null>(null);
+  const [isForcedMobile, setIsForcedMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [columns, setColumns] = useState(6);
+  const [search, setSearch] = useState("");
+  const [isMounted, setIsMounted] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [dice, setDice] = useState<any[]>([]);
+
+  useEffect(() => {
+    setIsMounted(true);
+    const browserLang = navigator.language.split("-")[0];
+    if (browserLang === "en") setLang("en");
+    fetchDice();
+
+    // Session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadUserProfile(session.user.id);
+      if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) loadUserProfile(session.user.id);
+      else setUserProfile(null);
+      
+      if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
+      else setIsAdmin(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchDice = async () => {
+    const { data } = await supabase.from("dice_packs").select("*").is("deleted_at", null).order("created_at", { ascending: false });
+    if (data) setDice(data);
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (data) setUserProfile(data);
+  };
+
+  const deleteDice = async (id: string) => {
+    if (!isAdmin) return;
+    if (!confirm(lang === "es" ? "¿Seguro que quieres borrar este dado?" : "Are you sure you want to delete this die?")) return;
+    const { error } = await supabase.from("dice_packs").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    if (!error) fetchDice();
+    else alert(error.message);
+  };
+
+  const renameDice = async (id: string, oldName: string) => {
+    if (!isAdmin) return;
+    const newName = prompt(lang === "es" ? "Nuevo nombre:" : "New name:", oldName);
+    if (newName && newName !== oldName) {
+      const { error } = await supabase.from("dice_packs").update({ name: newName }).eq("id", id);
+      if (!error) fetchDice();
+      else alert(error.message);
+    }
+  };
+
+  const t = translations[lang];
+
+  if (!isMounted) return null;
+
+  // Clases dinámicas para forzar el modo móvil
+  const mobileContainerClass = isForcedMobile ? "max-w-[375px] mx-auto border-x border-white/10 shadow-2xl" : "w-full";
+  const mobileTextClass = isForcedMobile ? "text-center" : "text-center";
+  const gridColsClass = viewMode === "list" ? "grid-cols-1" :
+    columns === 2 ? 'grid-cols-2' :
+    columns === 4 ? 'grid-cols-4' : 
+    columns === 6 ? 'grid-cols-6' : 
+    columns === 8 ? 'grid-cols-8' :
+    'grid-cols-10';
+
+  return (
+    <div className={`flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip ${mobileContainerClass}`}>
+      {/* Navbar */}
+      <nav className="glass sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-white/5 gap-4">
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-7 h-7 brand-gradient rounded-lg flex items-center justify-center">
+            <Dice6 className="text-white w-4 h-4" />
+          </div>
+          <span className={`font-black text-base tracking-tighter ${isForcedMobile ? "hidden" : "hidden lg:inline"}`}>Dizes <span className="text-blue-500">Community</span></span>
+          
+          <button 
+            onClick={() => setIsForcedMobile(!isForcedMobile)}
+            className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}
+          >
+            {isForcedMobile ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* Barra de Búsqueda Integrada */}
+        <div className="flex-1 flex justify-end">
+          <button 
+            onClick={() => setIsSearchOpen(true)} 
+            className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors mr-2"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        </div>
+
+        <AnimatePresence>
+          {isSearchOpen && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute inset-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl px-4 flex items-center border-b border-white/5"
+            >
+              <div className="relative w-full max-w-[1800px] mx-auto flex items-center">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder={t.searchPlaceholder}
+                  className="w-full bg-black/60 border border-zinc-800 rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:border-blue-500 text-sm font-medium transition-colors shadow-2xl"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onBlur={() => {
+                    // Close automatically if they click outside and didn't type anything
+                    if (!search) setIsSearchOpen(false);
+                  }}
+                />
+                <button 
+                  onClick={() => { setIsSearchOpen(false); setSearch(""); }} 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setLang(lang === "es" ? "en" : "es")} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+            <Languages className="w-4 h-4 text-zinc-500" />
+          </button>
+
+          {user?.email === ADMIN_EMAIL && (
+            <button 
+              onClick={() => setIsAdmin(!isAdmin)} 
+              className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}
+            >
+              {isAdmin ? "ADMIN MODE" : "USER MODE"}
+            </button>
+          )}
+          
+          <button 
+            onClick={() => setIsUploadOpen(true)}
+            className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 px-3 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 transition-all active:scale-95"
+          >
+            <Upload className="w-3.5 h-3.5 text-blue-500" />
+            <span className={isForcedMobile ? "hidden" : "hidden sm:inline"}>{t.uploadBtn}</span>
+          </button>
+          
+          {user ? (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsProfileOpen(true)}
+                className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all uppercase overflow-hidden"
+              >
+                {userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userProfile?.username?.[0] || user.user_metadata?.username?.[0] || user.email?.[0] || "U"
+                )}
+              </button>
+              <button onClick={() => supabase.auth.signOut()} className="p-1.5 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setIsAuthOpen(true)}
+              className="brand-gradient px-4 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            >
+              {t.signIn}
+            </button>
+          )}
+        </div>
+      </nav>
+      
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
+      {user && <ProfileModal isOpen={isProfileOpen} onClose={() => { setIsProfileOpen(false); fetchDice(); }} user={user} lang={lang} isAdmin={isAdmin} />}
+
+
+      {/* Main Content */}
+      <main className="flex-1 px-4 py-8 w-full max-w-[1800px] mx-auto">
+        <section className="mb-12 flex flex-col items-center text-center gap-6">
+          <div className="max-w-2xl mx-auto px-4">
+            <h1 className={`font-black tracking-tighter mb-4 leading-tight ${isForcedMobile ? "text-2xl" : "text-3xl md:text-5xl"}`}>
+              {t.heroTitle1} <br />
+              <span className="text-gradient">{t.heroTitle2}</span>
+            </h1>
+            <p className={`text-zinc-500 font-medium leading-relaxed mx-auto ${isForcedMobile ? "text-[10px] max-w-[250px]" : "text-sm max-w-sm"}`}>{t.heroDesc}</p>
+          </div>
+        </section>
+
+        {/* Toolbar */}
+        <section className="mb-6 py-2 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-1">
+             {[t.trending, t.latest].map((tab, i) => (
+               <button key={tab} className={`px-2 py-1 rounded text-[10px] font-black tracking-widest ${i === 0 ? "text-blue-500" : "text-zinc-500"}`}>
+                 {tab}
+               </button>
+             ))}
+          </div>
+
+          {viewMode === "grid" && (
+            <div className="flex items-center gap-4">
+              <div className="flex bg-zinc-900/50 rounded-md p-0.5 border border-white/5">
+                {[2, 4, 6, 8, 10].map(n => (
+                  <button key={n} onClick={() => setColumns(n)} className={`w-6 h-5 text-[9px] font-bold rounded ${columns === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex bg-zinc-900/50 rounded-md p-0.5 border border-white/5">
+            <button onClick={() => setViewMode("grid")} className={`p-1 rounded ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setViewMode("list")} className={`p-1 rounded ${viewMode === "list" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutList className="w-3.5 h-3.5" /></button>
+          </div>
+        </section>
+
+        {/* Grid */}
+        <div className={`grid gap-3 ${gridColsClass} ${viewMode === "list" ? "grid-cols-1" : ""}`}>
+          {dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
+            <motion.div key={die.id} whileHover={{ y: -2 }} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-lg p-2 group cursor-pointer hover:border-white/10 transition-colors ${viewMode === "list" ? "flex items-center gap-4" : ""}`}>
+              <div className={`bg-black rounded-lg flex items-center justify-center relative shrink-0 overflow-hidden ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full mb-2"}`}>
+                 <div className={`rounded flex items-center justify-center text-white font-black overflow-hidden ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-10 h-10 text-sm"}`} style={{ backgroundColor: die.color }}>
+                   {die.preview_face ? (
+                     die.preview_face.includes("<svg") ? (
+                       <div className={`${viewMode === "list" ? "w-4 h-4" : "w-6 h-6"}`} dangerouslySetInnerHTML={{ __html: die.preview_face }} />
+                     ) : (
+                       <span>{die.preview_face}</span>
+                     )
+                   ) : (
+                     die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-4 h-4"}`} /> : die.type.replace("D", "")
+                   )}
+                 </div>
+                 <div className="absolute top-1 right-1"><span className="bg-black/80 px-1 rounded-[3px] text-[7px] font-black text-zinc-500">{die.type}</span></div>
+              </div>
+              <div className="flex flex-1 items-center justify-between min-w-0">
+                <div className="truncate">
+                  <h4 className="font-bold text-[10px] md:text-xs truncate">{die.name}</h4>
+                  <p className="text-[9px] text-zinc-600 font-medium truncate">@{die.author}</p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedPack(die); }} className="bg-white/5 hover:bg-blue-600 px-2 py-1 rounded-md text-[8px] font-black transition-colors">{t.getConfig}</button>
+                  {isAdmin && (
+                    <div className="flex gap-1">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); renameDice(die.id, die.name); }} 
+                        className="flex-1 bg-white/5 hover:bg-zinc-700 text-white p-1 rounded-md text-[7px] font-black transition-colors"
+                      >
+                        EDIT
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); deleteDice(die.id); }} 
+                        className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-1 rounded-md text-[7px] font-black transition-colors"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </main>
+
+      <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
+      <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} />
+    </div>
+  );
+}

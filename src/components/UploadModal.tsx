@@ -1,0 +1,324 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { X, Upload, CheckCircle2, AlertCircle, Loader2, FileJson } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import JSZip from "jszip";
+import { supabase } from "@/lib/supabase";
+
+interface UploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  lang: "es" | "en";
+}
+
+const t = {
+  es: {
+    title: "Compartir Dados",
+    dropZone: "Arrastra tu archivo .dizes aquí o haz clic para buscar",
+    validating: "Validando archivo...",
+    success: "¡Archivo válido! Listo para subir.",
+    errorInvalid: "Archivo no válido. Asegúrate de que sea un archivo .dizes exportado desde la app.",
+    errorNoData: "El archivo está corrupto (falta data.json).",
+    uploading: "Subiendo a la comunidad...",
+    publish: "Publicar Dado",
+    cancel: "Cancelar",
+    name: "Nombre del pack",
+    tags: "Etiquetas (separadas por comas)",
+    description: "Descripción",
+  },
+  en: {
+    title: "Share Dice",
+    dropZone: "Drag your .dizes file here or click to browse",
+    validating: "Validating file...",
+    success: "Valid file! Ready to upload.",
+    errorInvalid: "Invalid file. Make sure it's a .dizes file exported from the app.",
+    errorNoData: "File is corrupt (missing data.json).",
+    uploading: "Uploading to community...",
+    publish: "Publish Dice",
+    cancel: "Cancel",
+    name: "Pack Name",
+    tags: "Tags (comma separated)",
+    description: "Description",
+  }
+};
+
+export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps) {
+  const [activeTab, setActiveTab] = useState<"file" | "code">("file");
+  const [file, setFile] = useState<File | null>(null);
+  const [rawCode, setRawCode] = useState("");
+  const [status, setStatus] = useState<"idle" | "validating" | "success" | "error" | "uploading">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [faces, setFaces] = useState<any[]>([]);
+  const [selectedFaceIdx, setSelectedFaceIdx] = useState(0);
+  const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6" });
+  const dict = t[lang];
+
+  const decodeBase64Gzip = async (base64str: string): Promise<string> => {
+    try {
+      const binData = atob(base64str);
+      const ui8Data = new Uint8Array(binData.length);
+      for (let i = 0; i < binData.length; i++) {
+        ui8Data[i] = binData.charCodeAt(i);
+      }
+      const stream = new Blob([ui8Data]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const response = new Response(stream);
+      return await response.text();
+    } catch (e) {
+      return atob(base64str);
+    }
+  };
+
+  const validateCode = async (text: string) => {
+    try {
+      setStatus("validating");
+      const cleanText = text.replace(/\s/g, "");
+      const base64Regex = /[A-Za-z0-9+/=]{20,}/;
+      const match = cleanText.match(base64Regex);
+      
+      if (match) {
+        const extractedCode = match[0];
+        const jsonStr = await decodeBase64Gzip(extractedCode);
+        const decoded = JSON.parse(jsonStr);
+        const isPack = Array.isArray(decoded);
+        const mainDie = isPack ? decoded[0] : decoded;
+        
+        setMetadata({
+          name: isPack ? "Dice Pack" : (mainDie.name || "Custom Die"),
+          tags: isPack ? "Pack" : (mainDie.type || "Die"),
+          description: isPack ? "A collection of dice." : `A single ${mainDie.type || 'D6'} die.`,
+          color: isPack ? "#3b82f6" : (mainDie.color || "#3b82f6"),
+          type: isPack ? "PACK" : (mainDie.type || "D6")
+        });
+
+        if (mainDie.faceContent) {
+          setFaces(mainDie.faceContent.map((c: string, i: number) => ({
+            content: c,
+            type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
+            color: mainDie.faceColors?.[i] || mainDie.color,
+            textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
+          })));
+        }
+
+        setRawCode(extractedCode);
+        setStatus("success");
+      } else {
+        throw new Error("No valid Base64 found");
+      }
+    } catch (e) {
+      console.error("Validation error:", e);
+      setStatus("error");
+      setErrorMsg(lang === "es" ? "Código no válido o incompatible" : "Invalid or incompatible code");
+    }
+  };
+
+  const validateFile = async (selectedFile: File) => {
+    if (!selectedFile.name.endsWith(".dizes")) {
+      setStatus("error");
+      setErrorMsg(dict.errorInvalid);
+      return;
+    }
+    setStatus("validating");
+    try {
+      const zip = new JSZip();
+      const content = await zip.loadAsync(selectedFile);
+      const dataFile = content.file("data.json") || content.file("config.json");
+      if (!dataFile) throw new Error("No data.json or config.json");
+
+      const data = JSON.parse(await dataFile.async("string"));
+      const isPack = Array.isArray(data);
+      const mainDie = isPack ? data[0] : data;
+
+      setMetadata({
+        name: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.name || selectedFile.name.replace(".dizes", "")),
+        tags: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.type || "Die"),
+        description: "",
+        color: mainDie.color || "#3b82f6",
+        type: isPack ? "PACK" : (mainDie.type || "D6")
+      });
+
+      if (mainDie.faceContent) {
+        setFaces(mainDie.faceContent.map((c: string, i: number) => ({
+          content: c,
+          type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
+          color: mainDie.faceColors?.[i] || mainDie.color,
+          textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
+        })));
+      }
+      
+      setFile(selectedFile);
+      setStatus("success");
+    } catch (err) {
+      // Intento alternativo: Quizá es un archivo de texto con el código base64 exportado así
+      try {
+        const text = await selectedFile.text();
+        if (text.match(/[A-Za-z0-9+/=]{20,}/)) {
+          await validateCode(text);
+          if (status !== "error") {
+             setFile(selectedFile);
+             return;
+          }
+        }
+      } catch (fallbackErr) {
+          // Ignorar y mostrar error original
+      }
+      setStatus("error");
+      setErrorMsg(dict.errorNoData);
+    }
+  };
+
+  const handleUpload = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setStatus("error");
+      setErrorMsg(lang === "es" ? "Debes iniciar sesión para publicar" : "You must be signed in to publish");
+      return;
+    }
+
+    setStatus("uploading");
+    try {
+      const { data: profile } = await supabase.from("profiles").select("username").eq("id", session.user.id).single();
+      const authorName = profile?.username || session.user.user_metadata?.username || session.user.email?.split("@")[0] || "User";
+
+      let fileUrl = "";
+      let shareCode = activeTab === "code" ? rawCode : null;
+
+      if (activeTab === "file" && file) {
+        const fileName = `${Date.now()}_${file.name}`;
+        const { data: storageData, error: storageError } = await supabase.storage.from("dice-files").upload(fileName, file);
+        if (storageError) throw storageError;
+        const { data: urlData } = supabase.storage.from("dice-files").getPublicUrl(fileName);
+        fileUrl = urlData.publicUrl;
+      }
+
+      const { error: dbError } = await supabase.from("dice_packs").insert([{
+        name: metadata.name,
+        author: authorName,
+        user_id: session.user.id,
+        tags: [metadata.tags],
+        type: metadata.type,
+        color: metadata.color,
+        file_url: fileUrl,
+        share_code: shareCode,
+        preview_face: faces[selectedFaceIdx]?.content || null
+      }]);
+
+      if (dbError) throw dbError;
+      setStatus("success");
+      setTimeout(() => { onClose(); window.location.reload(); }, 1500);
+    } catch (err: any) {
+      console.error("Upload Error:", err);
+      setStatus("error");
+      setErrorMsg(`Error al publicar: ${err.message || JSON.stringify(err)}`);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black tracking-tighter uppercase">{status === "success" ? (lang === "es" ? "CONFIRMAR" : "CONFIRM") : dict.title}</h2>
+              <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+            </div>
+
+            {status === "idle" || status === "error" ? (
+              <>
+                <div className="flex bg-black/40 p-1 rounded-2xl border border-white/5 mb-6">
+                  <button onClick={() => { setActiveTab("file"); setStatus("idle"); }} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black transition-all ${activeTab === "file" ? "bg-white text-black" : "text-zinc-500"}`}>
+                    {lang === "es" ? "ARCHIVO" : "FILE"}
+                  </button>
+                  <button onClick={() => { setActiveTab("code"); setStatus("idle"); }} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black transition-all ${activeTab === "code" ? "bg-white text-black" : "text-zinc-500"}`}>
+                    {lang === "es" ? "CÓDIGO" : "CODE"}
+                  </button>
+                </div>
+
+                {activeTab === "file" ? (
+                  <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); validateFile(e.dataTransfer.files[0]); }} className={`border-2 border-dashed rounded-3xl p-10 text-center cursor-pointer ${status === "error" ? "border-red-500/50" : "border-zinc-800 hover:border-blue-500/50"}`} onClick={() => document.getElementById("fileInput")?.click()}>
+                    <input id="fileInput" type="file" className="hidden" accept=".dizes" onChange={e => { if (e.target.files?.[0]) validateFile(e.target.files[0]); }} />
+                    <Upload className="w-8 h-8 text-blue-500 mx-auto mb-4" />
+                    <p className="font-bold text-xs text-zinc-400">{status === "error" ? errorMsg : dict.dropZone}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <textarea 
+                      className="w-full bg-black/40 border border-zinc-800 rounded-2xl p-4 text-[10px] font-mono h-32 focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder={lang === "es" ? "Pega el código aquí..." : "Paste code here..."}
+                      onChange={(e) => validateCode(e.target.value)}
+                    />
+                    {status === "error" && <p className="text-red-500 text-[10px] font-bold ml-2">{errorMsg}</p>}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-xl font-black text-white shadow-xl relative overflow-hidden" style={{ backgroundColor: faces[selectedFaceIdx]?.color || metadata.color }}>
+                    {faces[selectedFaceIdx] ? (
+                      faces[selectedFaceIdx].content.includes("<svg") ? (
+                        <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: faces[selectedFaceIdx].content }} />
+                      ) : (
+                        <span style={{ color: faces[selectedFaceIdx].textColor || "#fff" }}>{faces[selectedFaceIdx].content}</span>
+                      )
+                    ) : metadata.type.replace("D", "")}
+                  </div>
+                  
+                  <div className="w-full mb-4">
+                    <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2 mb-2 block">{lang === "es" ? "Selecciona cara de referencia" : "Select reference face"}</label>
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                      {faces.map((face, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => setSelectedFaceIdx(i)}
+                          className={`w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-[10px] font-black border-2 transition-all overflow-hidden ${selectedFaceIdx === i ? "border-blue-500 scale-110 shadow-lg" : "border-white/5 opacity-50"}`}
+                          style={{ backgroundColor: face.color || metadata.color }}
+                        >
+                          {face.content.includes("<svg") ? (
+                            <div className="w-6 h-6 pointer-events-none" dangerouslySetInnerHTML={{ __html: face.content }} />
+                          ) : (
+                            <span style={{ color: face.textColor || "#fff" }}>{face.content}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="w-full text-left space-y-3">
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2">{lang === "es" ? "Nombre del Dado/Pack" : "Dice/Pack Name"}</label>
+                      <input 
+                        type="text" 
+                        value={metadata.name}
+                        onChange={(e) => setMetadata({...metadata, name: e.target.value})}
+                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-2 mt-1 text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2">{lang === "es" ? "Juego / Categoría" : "Game / Category"}</label>
+                      <input 
+                        type="text" 
+                        value={metadata.tags}
+                        onChange={(e) => setMetadata({...metadata, tags: e.target.value})}
+                        className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-2 mt-1 text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button onClick={() => { setFile(null); setRawCode(""); setStatus("idle"); }} className="flex-1 py-4 rounded-2xl bg-zinc-800 font-bold text-xs uppercase tracking-widest">{dict.cancel}</button>
+                  <button onClick={handleUpload} className={`flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest brand-gradient shadow-xl ${status === "uploading" ? "opacity-50" : ""}`}>
+                    {status === "uploading" ? "..." : dict.publish}
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
