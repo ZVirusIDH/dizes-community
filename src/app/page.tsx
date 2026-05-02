@@ -7,6 +7,7 @@ import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
 import AuthModal from "@/components/AuthModal";
 import ProfileModal from "@/components/ProfileModal";
+import DiceEditModal from "@/components/DiceEditModal";
 import { supabase } from "@/lib/supabase";
 import { User as SupabaseUser } from "@supabase/supabase-js";
 
@@ -87,7 +88,7 @@ export default function Home() {
     const checkMobile = () => {
       const isMob = window.innerWidth < 768;
       setIsActualMobile(isMob);
-      if (isMob) setColumns(prev => prev > 4 ? 4 : prev < 2 ? 2 : prev);
+      if (isMob) setColumns(3);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -112,6 +113,8 @@ export default function Home() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
   const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize) => {
     try {
@@ -406,7 +409,7 @@ export default function Home() {
                   {isAdmin && (
                     <div className="flex gap-1">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); renameDice(die.id, die.name); }} 
+                        onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} 
                         className="flex-1 bg-white/5 hover:bg-zinc-800 text-zinc-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-white/5 transition-all"
                       >
                         EDIT
@@ -466,6 +469,13 @@ export default function Home() {
 
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
       <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} />
+      <DiceEditModal 
+        isOpen={!!diceToEdit} 
+        onClose={() => setDiceToEdit(null)} 
+        dice={diceToEdit} 
+        lang={lang} 
+        onUpdated={fetchDice} 
+      />
     </div>
   );
 }
