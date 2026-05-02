@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Save, Trash2, Loader2 } from "lucide-react";
+import { X, Save, Trash2, Loader2, CheckCircle2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
@@ -14,8 +14,23 @@ interface DiceEditModalProps {
 }
 
 export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }: DiceEditModalProps) {
-  const [metadata, setMetadata] = useState({ name: "", tags: "", type: "", color: "" });
+  const [metadata, setMetadata] = useState({ name: "", tags: "", type: "", color: "", preview_face: "" });
+  const [faces, setFaces] = useState<any[]>([]);
+  const [selectedFaceIdx, setSelectedFaceIdx] = useState(-1);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+
+  const decodeBase64Gzip = async (base64str: string): Promise<string> => {
+    try {
+      const binData = atob(base64str);
+      const ui8Data = new Uint8Array(binData.length);
+      for (let i = 0; i < binData.length; i++) ui8Data[i] = binData.charCodeAt(i);
+      const stream = new Blob([ui8Data]).stream().pipeThrough(new DecompressionStream("gzip"));
+      const response = new Response(stream);
+      return await response.text();
+    } catch (e) {
+      return atob(base64str);
+    }
+  };
 
   useEffect(() => {
     if (dice) {
@@ -23,8 +38,31 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
         name: dice.name || "",
         tags: dice.tags?.[0] || "",
         type: dice.type || "D6",
-        color: dice.color || "#3b82f6"
+        color: dice.color || "#3b82f6",
+        preview_face: dice.preview_face || ""
       });
+
+      if (dice.share_code) {
+        decodeBase64Gzip(dice.share_code).then(jsonStr => {
+          try {
+            const decoded = JSON.parse(jsonStr);
+            const isPack = Array.isArray(decoded);
+            const mainDie = isPack ? decoded[0] : decoded;
+            if (mainDie.faceContent) {
+              const extractedFaces = mainDie.faceContent.map((c: string, i: number) => ({
+                content: c,
+                type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
+                color: mainDie.faceColors?.[i] || mainDie.color,
+                textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
+              }));
+              setFaces(extractedFaces);
+              
+              const currentIdx = extractedFaces.findIndex((f: any) => f.content === dice.preview_face);
+              setSelectedFaceIdx(currentIdx);
+            }
+          } catch (e) { console.error("Parse error:", e); }
+        });
+      }
     }
   }, [dice]);
 
@@ -37,7 +75,8 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
           name: metadata.name,
           tags: [metadata.tags],
           type: metadata.type,
-          color: metadata.color
+          color: metadata.color,
+          preview_face: metadata.preview_face
         })
         .eq("id", dice.id);
 
@@ -68,13 +107,36 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
 
             <div className="space-y-6">
                <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-xl font-black text-white shadow-xl relative overflow-hidden" style={{ backgroundColor: metadata.color }}>
-                    {dice.preview_face?.includes("<svg") ? (
-                      <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: dice.preview_face }} />
+                  <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-xl font-black text-white shadow-xl relative overflow-hidden" style={{ backgroundColor: faces[selectedFaceIdx]?.color || metadata.color }}>
+                    {(faces[selectedFaceIdx]?.content || metadata.preview_face)?.includes("<svg") ? (
+                      <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: faces[selectedFaceIdx]?.content || metadata.preview_face }} />
                     ) : (
-                      <span>{dice.preview_face || metadata.type.replace("D", "")}</span>
+                      <span>{faces[selectedFaceIdx]?.content || metadata.preview_face || metadata.type.replace("D", "")}</span>
                     )}
                   </div>
+
+                  {faces.length > 0 && (
+                    <div className="w-full mb-6">
+                      <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2 mb-2 block tracking-widest">{lang === "es" ? "Cara de previsualización" : "Preview face"}</label>
+                      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        {faces.map((face, i) => (
+                          <button 
+                            key={i}
+                            type="button"
+                            onClick={() => { setSelectedFaceIdx(i); setMetadata({...metadata, preview_face: face.content}); }}
+                            className={`w-10 h-10 rounded-lg shrink-0 flex items-center justify-center text-[10px] font-black border-2 transition-all overflow-hidden ${selectedFaceIdx === i ? "border-blue-500 scale-110 shadow-lg" : "border-white/5 opacity-50"}`}
+                            style={{ backgroundColor: face.color || metadata.color }}
+                          >
+                            {face.content.includes("<svg") ? (
+                              <div className="w-6 h-6 pointer-events-none" dangerouslySetInnerHTML={{ __html: face.content }} />
+                            ) : (
+                              <span style={{ color: face.textColor || "#fff" }}>{face.content}</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="w-full text-left space-y-4">
                     <div>
