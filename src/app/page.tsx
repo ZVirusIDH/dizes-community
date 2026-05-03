@@ -612,6 +612,16 @@ export default function Home() {
         </div>
       </main>
 
+      <ProfileModal 
+        isOpen={isProfileOpen} 
+        onClose={() => setIsProfileOpen(false)} 
+        user={user} 
+        lang={lang}
+        isAdmin={isAdmin}
+        isTestUser={isTestUser}
+        setIsTestUser={setIsTestUser}
+      />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
       <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} />
       <DiceEditModal 
