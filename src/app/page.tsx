@@ -142,7 +142,7 @@ export default function Home() {
 
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
-  const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
+  const fetchDice = async (sort: "trending" | "latest" | "pending" = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
     try {
       let query = supabase.from("dice_packs").select("*", { count: "exact" });
       
@@ -627,7 +627,7 @@ export default function Home() {
         onClose={() => setDiceToEdit(null)} 
         dice={diceToEdit} 
         lang={lang} 
-        onUpdated={fetchDice} 
+        onUpdated={() => fetchDice()} 
       />
     </div>
   );

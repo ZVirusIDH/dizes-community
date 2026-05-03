@@ -147,7 +147,10 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const zip = new JSZip();
       const content = await zip.loadAsync(selectedFile);
       const dataFile = content.file(/.*\.json$/)[0];
-      if (!dataFile) throw new Error("No JSON configuration found in .dizes file");
+      if (!dataFile) {
+        const filenames = Object.keys(content.files).join(", ");
+        throw new Error(lang === "es" ? `No se encontró configuración JSON. Archivos: ${filenames}` : `No JSON found. Files: ${filenames}`);
+      }
 
       const jsonPath = dataFile.name;
       const baseDir = jsonPath.includes("/") ? jsonPath.substring(0, jsonPath.lastIndexOf("/") + 1) : "";
@@ -155,6 +158,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const data = JSON.parse(await dataFile.async("string"));
       const isPack = Array.isArray(data);
       const mainDie = isPack ? data[0] : data;
+      
+      if (!mainDie) throw new Error(lang === "es" ? "El JSON no contiene datos de dados válidos" : "JSON does not contain valid dice data");
 
       if (isPack) {
         setPackItems(data.map((d: any, idx: number) => ({
