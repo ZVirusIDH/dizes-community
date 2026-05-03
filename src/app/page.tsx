@@ -562,7 +562,7 @@ export default function Home() {
                         color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
                       }}
                     >
-                      {die.preview_face && die.preview_face.length > 10 ? (
+                      {die.preview_face && die.preview_face.trim().length > 0 ? (
                         die.preview_face.includes("<svg") ? (
                           <div 
                             className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"} flex items-center justify-center`} 
@@ -571,7 +571,7 @@ export default function Home() {
                             }}
                             dangerouslySetInnerHTML={{ 
                               __html: die.preview_face
-                                .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block" ')
+                                .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
                                 .replace(/fill="[^"]*"/g, 'fill="currentColor"')
                                 .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
                             }}
@@ -579,7 +579,7 @@ export default function Home() {
                         ) : (die.preview_face.startsWith("http") || die.preview_face.startsWith("blob:") || die.preview_face.startsWith("data:")) ? (
                           <img src={die.preview_face} alt="Preview" className="w-full h-full object-contain pointer-events-none" />
                         ) : (
-                          <span className="leading-none">{die.preview_face.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : die.preview_face}</span>
+                          <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none`}>{die.preview_face.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : die.preview_face}</span>
                         )
                       ) : (
                         die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>

@@ -337,6 +337,13 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
          shareCode = await compressToB64(JSON.stringify(isArr ? items : items[0]));
       }
 
+      // Determine the correct preview face content (ensure it's the uploaded URL if it was a local file)
+      let finalPreviewFace = faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || "";
+      if (finalPreviewFace.startsWith("file://") || finalPreviewFace.startsWith("blob:")) {
+        const name = finalPreviewFace.substring(finalPreviewFace.lastIndexOf("/") + 1);
+        finalPreviewFace = uploadedImages[name] || finalPreviewFace;
+      }
+
       inserts.push({
         name: metadata.name,
         author: authorName,
@@ -346,7 +353,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         color: metadata.color,
         file_url: fileUrl || "",
         share_code: shareCode,
-        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || "",
+        preview_face: finalPreviewFace,
         is_published: metadata.isPublished,
         status: moderationStatus
       });
