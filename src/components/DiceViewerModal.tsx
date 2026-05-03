@@ -175,8 +175,8 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                              else baseSizePercent = 65;
                           } else {
                              if (faceType === 'ICON_NUMBER') baseSizePercent = 14;
-                             else if (faceType === 'BASIC') baseSizePercent = 52;
-                             else baseSizePercent = 45;
+                             else if (faceType === 'BASIC') baseSizePercent = 85;
+                             else baseSizePercent = 75;
                           }
                           
                           const effectiveColor = skipTint ? "currentColor" : faceTint;
@@ -235,7 +235,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                                 style={{ 
                                   color: faceTint, 
                                   fontSize: '100px', // Large base for crisp scaling
-                                  transform: 'scale(0.12)' // Scale back down (normalized)
+                                  transform: 'scale(0.35)' // Scale back down (normalized)
                                 }}
                               >
                                 {content}
@@ -293,3 +293,4 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
     </AnimatePresence>
   );
 }
+

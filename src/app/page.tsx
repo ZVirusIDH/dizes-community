@@ -76,7 +76,8 @@ export default function Home() {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dice, setDice] = useState<any[] | null>(null);
-  const [activeTab, setActiveTab] = useState<"trending" | "latest">("trending");
+  const [isTestUser, setIsTestUser] = useState(false);
+   const [activeTab, setActiveTab] = useState<"trending" | "latest" | "pending">("trending");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -85,8 +86,13 @@ export default function Home() {
   const loadUserProfile = async (userId: string) => {
     try {
       const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
-      if (data) setUserProfile(data);
+      if (data) {
+        setUserProfile(data);
+        if (data.is_admin) setIsAdmin(true);
+        return data;
+      }
     } catch (e) { console.error("Error loading profile:", e); }
+    return null;
   };
 
   useEffect(() => {
@@ -133,6 +139,9 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const activeUser = isTestUser ? { id: 'test-user-id', email: 'test@user.com', user_metadata: { username: 'Tester' } } : user;
+  const activeIsAdmin = isTestUser ? false : isAdmin;
+
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
   const fetchDice = async (sort: "trending" | "latest" = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
@@ -143,6 +152,18 @@ export default function Home() {
         query = query.not("deleted_at", "is", null);
       } else {
         query = query.is("deleted_at", null);
+        
+        if (sort === "pending") {
+          query = query.eq("status", "pending");
+        } else {
+          // Regular users only see published & approved
+          if (!isAdmin) {
+            query = query.eq("is_published", true).eq("status", "approved");
+          } else {
+            // Admins see all approved ones in trending/latest
+            query = query.eq("status", "approved");
+          }
+        }
       }
       
       if (sort === "trending") {
@@ -386,7 +407,8 @@ export default function Home() {
           <div className="flex items-center gap-1">
              {[
                { id: "trending", label: t.trending },
-               { id: "latest", label: t.latest }
+               { id: "latest", label: t.latest },
+               ...(isAdmin ? [{ id: "pending", label: lang === "es" ? "PENDIENTES" : "PENDING" }] : [])
              ].map((tab) => (
                <button 
                  key={tab.id} 
@@ -438,11 +460,16 @@ export default function Home() {
                 className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
               >
                 
-                {/* Top: Name & Multi-select Checkbox */}
-                <div className="flex items-center justify-between gap-2 min-w-0">
-                  <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
+                {/* Top: Name & Game & Multi-select Checkbox */}
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
+                    {die.tags && die.tags.length > 0 && (
+                      <p className="text-[8px] text-zinc-500 font-bold truncate uppercase opacity-80 leading-none">{die.tags[0]}</p>
+                    )}
+                  </div>
                   {isAdmin && showDeleted && (
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
                       {selectedDice.includes(die.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
                     </div>
                   )}
@@ -475,20 +502,37 @@ export default function Home() {
                 <div className="flex flex-col gap-1.5 mt-1">
                   {!showDeleted ? (
                     <div className="flex gap-1 items-stretch">
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          incrementDownload(die.id, die.downloads, die.share_code);
-                          setSelectedPack(die); 
-                        }} 
-                        className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
-                      <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
-                        <Download className="w-3 h-3 text-blue-500" />
-                        <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
-                      </div>
+                      {activeTab === "pending" && isAdmin ? (
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const { error } = await supabase.from("dice_packs").update({ status: 'approved' }).eq("id", die.id);
+                            if (!error) fetchDice();
+                            else alert(error.message);
+                          }}
+                          className="flex-1 bg-green-600 hover:bg-green-500 text-white h-9 rounded-xl transition-all flex items-center justify-center font-black text-[9px] uppercase tracking-widest shadow-lg shadow-green-500/20 gap-2"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          {lang === "es" ? "Aprobar" : "Approve"}
+                        </button>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              incrementDownload(die.id, die.downloads, die.share_code);
+                              setSelectedPack(die); 
+                            }} 
+                            className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
+                            <Download className="w-3 h-3 text-blue-500" />
+                            <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="flex gap-1">

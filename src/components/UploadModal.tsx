@@ -52,7 +52,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   const [faces, setFaces] = useState<any[]>([]);
   const [extractedImages, setExtractedImages] = useState<{[path: string]: Blob}>({});
   const [selectedFaceIdx, setSelectedFaceIdx] = useState(0);
-  const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6" });
+  const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6", isPublished: true });
   const [packItems, setPackItems] = useState<{name: string, type: string, color: string}[]>([]);
   const dict = t[lang];
 
@@ -239,8 +239,24 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
 
     setStatus("uploading");
     try {
-      const { data: profile } = await supabase.from("profiles").select("username").eq("id", session.user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("username, is_trusted, is_admin, max_published").eq("id", session.user.id).single();
       const authorName = profile?.username || session.user.user_metadata?.username || session.user.email?.split("@")[0] || "User";
+      
+      // Quota check
+      if (metadata.isPublished && !profile?.is_admin) {
+        const { count } = await supabase.from("dice_packs")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", session.user.id)
+          .is("deleted_at", null)
+          .eq("is_published", true);
+          
+        const maxPublished = profile?.max_published ?? 30;
+        if ((count || 0) >= maxPublished) {
+          throw new Error(lang === "es" ? `Límite de ${maxPublished} dados alcanzado.` : `Limit of ${maxPublished} dice reached.`);
+        }
+      }
+
+      const moderationStatus = (profile?.is_trusted || profile?.is_admin) ? "approved" : "pending";
 
       let fileUrl = "";
       let shareCode = activeTab === "code" ? rawCode : null;
@@ -323,7 +339,9 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         color: metadata.color,
         file_url: fileUrl || "",
         share_code: shareCode,
-        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || ""
+        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || "",
+        is_published: metadata.isPublished,
+        status: moderationStatus
       });
 
       if (isArr && items.length > 1) {
@@ -339,7 +357,9 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
             color: die.color || "#3b82f6",
             file_url: "",
             share_code: dieShareCode,
-            preview_face: die.faceContent ? die.faceContent[0] : ""
+            preview_face: die.faceContent ? die.faceContent[0] : "",
+            is_published: metadata.isPublished,
+            status: moderationStatus
           });
         }
       }
@@ -481,6 +501,23 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                         onChange={(e) => setMetadata({...metadata, tags: e.target.value})}
                         className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-2 mt-1 text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors"
                       />
+                    </div>
+
+                    <div className="flex items-center justify-between bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 !mt-6">
+                      <div className="flex flex-col text-left">
+                        <span className="text-[10px] font-black uppercase tracking-tight">{lang === "es" ? "Publicar en Comunidad" : "Publish to Community"}</span>
+                        <span className="text-[8px] text-zinc-500 font-bold uppercase">{lang === "es" ? "Visible para otros usuarios" : "Visible to other users"}</span>
+                      </div>
+                      <button 
+                        onClick={() => setMetadata({...metadata, isPublished: !metadata.isPublished})}
+                        className={`w-10 h-6 rounded-full relative transition-all ${metadata.isPublished ? "bg-blue-600" : "bg-zinc-700"}`}
+                      >
+                        <motion.div 
+                          animate={{ x: metadata.isPublished ? 20 : 4 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className="w-3 h-3 bg-white rounded-full absolute top-1.5 shadow-sm"
+                        />
+                      </button>
                     </div>
 
                     {packItems.length > 0 && (

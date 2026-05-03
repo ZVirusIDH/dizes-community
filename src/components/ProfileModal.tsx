@@ -11,6 +11,8 @@ interface ProfileModalProps {
   user: any;
   lang: "es" | "en";
   isAdmin: boolean;
+  isTestUser: boolean;
+  setIsTestUser: (val: boolean) => void;
 }
 
 const t = {
@@ -50,7 +52,7 @@ const t = {
   }
 };
 
-export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isTestUser, setIsTestUser }: ProfileModalProps) {
   const [activeTab, setActiveTab] = useState<"data" | "uploads" | "deleted">("data");
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -201,6 +203,17 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin }: P
                   <button type="submit" disabled={loading} className="w-full brand-gradient py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all">
                     {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : dict.save}
                   </button>
+
+                  {isAdmin && (
+                    <button 
+                      type="button"
+                      onClick={() => { setIsTestUser(!isTestUser); onClose(); }} 
+                      className="w-full mt-4 bg-orange-500/10 border border-orange-500/20 py-4 rounded-2xl text-[10px] font-black text-orange-500 uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      <User className="w-4 h-4" />
+                      {isTestUser ? (lang === "es" ? "SALIR DE MODO TEST" : "EXIT TEST MODE") : (lang === "es" ? "SIMULAR USUARIO TEST" : "SIMULATE TEST USER")}
+                    </button>
+                  )}
                 </form>
               ) : (
                 <div className="space-y-4">
@@ -217,15 +230,30 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin }: P
                           </div>
                           <div>
                             <h4 className="font-bold text-sm">{item.name}</h4>
-                            <div className="flex items-center gap-3 text-[8px] font-black text-zinc-600 uppercase">
-                              <span className="flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> {new Date(item.created_at).toLocaleDateString()}</span>
-                              <span className="flex items-center gap-1"><Clock className="w-2.5 h-2.5" /> {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div className="flex items-center gap-3 text-[8px] font-black uppercase mt-1">
+                              <span className={`flex items-center gap-1 ${item.status === 'approved' ? 'text-green-500' : item.status === 'pending' ? 'text-yellow-500' : 'text-red-500'}`}>
+                                <Clock className="w-2.5 h-2.5" /> {item.status === 'approved' ? (lang === 'es' ? 'Aprobado' : 'Approved') : item.status === 'pending' ? (lang === 'es' ? 'Pendiente' : 'Pending') : (lang === 'es' ? 'Rechazado' : 'Rejected')}
+                              </span>
+                              <span className={`flex items-center gap-1 ${item.is_published ? 'text-blue-500' : 'text-zinc-500'}`}>
+                                {item.is_published ? (lang === 'es' ? 'Público' : 'Public') : (lang === 'es' ? 'Privado' : 'Private')}
+                              </span>
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-2">
+                           {activeTab === "uploads" && (
+                             <button 
+                               onClick={async () => {
+                                 const { error } = await supabase.from("dice_packs").update({ is_published: !item.is_published }).eq("id", item.id);
+                                 if (!error) loadUploads();
+                               }}
+                               className={`p-2 rounded-xl transition-all border ${item.is_published ? "bg-blue-500/10 border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white" : "bg-zinc-800 border-white/5 text-zinc-500 hover:bg-white/10"}`}
+                             >
+                               {item.is_published ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                             </button>
+                           )}
                            {activeTab === "uploads" ? (
-                             <button onClick={() => softDelete(item.id)} className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                             <button onClick={() => softDelete(item.id)} className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl border border-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button>
                            ) : (
                              <button onClick={() => hardDelete(item.id)} className="p-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-black text-[8px]">FINAL DELETE</button>
                            )}
