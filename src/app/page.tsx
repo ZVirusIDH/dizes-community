@@ -1,4 +1,6 @@
 "use client";
+import React from 'react';
+
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2, Edit2 } from "lucide-react";
@@ -252,13 +254,27 @@ export default function Home() {
   // Clases dinámicas para forzar el modo móvil
   const mobileContainerClass = isForcedMobile ? "max-w-[375px] mx-auto border-x border-white/10 shadow-2xl" : "w-full";
   const mobileTextClass = isForcedMobile ? "text-center" : "text-center";
-  const gridColsClass = viewMode === "list" ? "grid-cols-1" :
-    columns === 2 ? 'grid-cols-2' :
-    columns === 3 ? 'grid-cols-3' :
-    columns === 4 ? 'grid-cols-4' : 
-    columns === 6 ? 'grid-cols-6' : 
-    columns === 8 ? 'grid-cols-8' :
-    'grid-cols-10';
+  const getGridCols = () => {
+    if (viewMode === "list") return "grid-cols-1";
+    switch (columns) {
+      case 2: return "grid-cols-2";
+      case 3: return "grid-cols-3";
+      case 4: return "grid-cols-4";
+      case 6: return "grid-cols-6";
+      case 8: return "grid-cols-8";
+      case 10: return "grid-cols-10";
+      default: return "grid-cols-6";
+    }
+  };
+
+  const gridColsClass = getGridCols();
+
+  const filteredDice = (dice || []).filter((d: any) => {
+    const searchLower = search.toLowerCase();
+    const matchesName = d.name?.toLowerCase().includes(searchLower);
+    const matchesTags = d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(searchLower));
+    return matchesName || matchesTags;
+  });
 
   return (
     <div className={`flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip ${mobileContainerClass}`}>
@@ -526,7 +542,7 @@ export default function Home() {
               <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
             </div>
           ) : (
-            dice.filter((d: any) => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die: any) => {
+            filteredDice.map((die: any) => {
               const diceCount = parseInt(die.tags?.find((t: string) => t.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
               const isRealPack = die.type === 'PACK' && diceCount > 1;
 
