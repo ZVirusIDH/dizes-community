@@ -54,6 +54,17 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6" });
   const dict = t[lang];
 
+  useEffect(() => {
+    if (isOpen) {
+      const savedCode = sessionStorage.getItem("upload_code");
+      if (savedCode) {
+        setActiveTab("code");
+        validateCode(savedCode);
+        sessionStorage.removeItem("upload_code");
+      }
+    }
+  }, [isOpen]);
+
   const decodeBase64Gzip = async (base64str: string): Promise<string> => {
     try {
       const binData = atob(base64str);

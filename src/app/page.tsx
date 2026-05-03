@@ -82,6 +82,13 @@ export default function Home() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
 
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+      if (data) setUserProfile(data);
+    } catch (e) { console.error("Error loading profile:", e); }
+  };
+
   useEffect(() => {
     setIsMounted(true);
     const browserLang = navigator.language.split("-")[0];
@@ -112,6 +119,16 @@ export default function Home() {
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
       else setIsAdmin(false);
     });
+
+    // Action check (Deep Link from App for Upload)
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
+    const code = urlParams.get("code");
+    if (action === "upload" && code) {
+      setIsUploadOpen(true);
+      // Wait for modal to mount or use a state to pass the code
+      sessionStorage.setItem("upload_code", code);
+    }
 
     return () => subscription.unsubscribe();
   }, []);
