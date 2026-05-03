@@ -53,6 +53,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   const [extractedImages, setExtractedImages] = useState<{[path: string]: Blob}>({});
   const [selectedFaceIdx, setSelectedFaceIdx] = useState(0);
   const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6" });
+  const [packItems, setPackItems] = useState<{name: string, type: string, color: string}[]>([]);
   const dict = t[lang];
 
   useEffect(() => {
@@ -95,6 +96,16 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         const decoded = JSON.parse(jsonStr);
         const isPack = Array.isArray(decoded);
         const mainDie = isPack ? decoded[0] : decoded;
+        
+        if (isPack) {
+          setPackItems(decoded.map((d: any, idx: number) => ({
+            name: d.name || `Die ${idx + 1}`,
+            type: d.type || "D6",
+            color: d.color || "#3b82f6"
+          })));
+        } else {
+          setPackItems([]);
+        }
         
         setMetadata({
           name: isPack ? "Dice Pack" : (mainDie.name || "Custom Die"),
@@ -141,6 +152,16 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const data = JSON.parse(await dataFile.async("string"));
       const isPack = Array.isArray(data);
       const mainDie = isPack ? data[0] : data;
+
+      if (isPack) {
+        setPackItems(data.map((d: any, idx: number) => ({
+          name: d.name || `Die ${idx + 1}`,
+          type: d.type || "D6",
+          color: d.color || "#3b82f6"
+        })));
+      } else {
+        setPackItems([]);
+      }
 
       // Extraer imágenes del ZIP
       const images: {[path: string]: Blob} = {};
@@ -202,6 +223,18 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
     }
   };
 
+  const compressToB64 = async (jsonStr: string) => {
+    const blob = new Blob([jsonStr]);
+    const stream = blob.stream().pipeThrough(new CompressionStream("gzip"));
+    const compressed = await new Response(stream).arrayBuffer();
+    const uint8 = new Uint8Array(compressed);
+    let binary = "";
+    for (let i = 0; i < uint8.length; i++) {
+      binary += String.fromCharCode(uint8[i]);
+    }
+    return btoa(binary);
+  };
+
   const handleUpload = async () => {
     if (status === "uploading") return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -218,13 +251,14 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
 
       let fileUrl = "";
       let shareCode = activeTab === "code" ? rawCode : null;
+      let inserts: any[] = [];
+      let isArr = false;
+      let items: any[] = [];
 
-      // Si es un archivo .dizes, subimos imágenes y el archivo
       if (activeTab === "file" && file) {
         const timestamp = Date.now();
         const uploadedImages: {[path: string]: string} = {};
 
-        // Subir cada imagen extraída a Supabase Storage
         for (const [name, blob] of Object.entries(extractedImages)) {
           const path = `assets/${timestamp}_${name}`;
           const { error: imgError } = await supabase.storage.from("dice-files").upload(path, blob);
@@ -234,18 +268,19 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
           }
         }
 
-        // Leer el JSON original del archivo para actualizar las URLs
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
         const dataFile = zipContent.file("data.json") || zipContent.file("config.json");
         if (dataFile) {
           const jsonStr = await dataFile.async("string");
           let diceData = JSON.parse(jsonStr);
-          const isArr = Array.isArray(diceData);
-          const items = isArr ? diceData : [diceData];
+          isArr = Array.isArray(diceData);
+          items = isArr ? diceData : [diceData];
 
-          // Actualizar URLs de imágenes locales a URLs públicas de Supabase
-          items.forEach((d: any) => {
+          items.forEach((d: any, idx: number) => {
+            if (isArr && packItems[idx]) {
+              d.name = packItems[idx].name;
+            }
             if (d.faceContent) {
               d.faceContent = d.faceContent.map((c: string) => {
                 if (c.startsWith("file://")) {
@@ -266,30 +301,27 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
             }
           });
 
-          // Generar nuevo share_code comprimido con las URLs públicas
           const updatedJson = JSON.stringify(isArr ? items : items[0]);
-          const blob = new Blob([updatedJson]);
-          // @ts-ignore
-          const stream = blob.stream().pipeThrough(new CompressionStream("gzip"));
-          const compressed = await new Response(stream).arrayBuffer();
-          
-          // Optimized binary to base64 to avoid stack overflow
-          const uint8 = new Uint8Array(compressed);
-          let binary = "";
-          for (let i = 0; i < uint8.length; i++) {
-            binary += String.fromCharCode(uint8[i]);
-          }
-          shareCode = btoa(binary);
+          shareCode = await compressToB64(updatedJson);
         }
 
         const fileName = `packs/${timestamp}_${file.name}`;
-        const { data: storageData, error: storageError } = await supabase.storage.from("dice-files").upload(fileName, file);
+        const { error: storageError } = await supabase.storage.from("dice-files").upload(fileName, file);
         if (storageError) throw storageError;
         const { data: urlData } = supabase.storage.from("dice-files").getPublicUrl(fileName);
         fileUrl = urlData.publicUrl;
+      } else if (activeTab === "code") {
+         const jsonStr = await decodeBase64Gzip(rawCode);
+         const decoded = JSON.parse(jsonStr);
+         isArr = Array.isArray(decoded);
+         items = isArr ? decoded : [decoded];
+         items.forEach((d: any, idx: number) => {
+            if (isArr && packItems[idx]) d.name = packItems[idx].name;
+         });
+         shareCode = await compressToB64(JSON.stringify(isArr ? items : items[0]));
       }
 
-      const { error: dbError } = await supabase.from("dice_packs").insert([{
+      inserts.push({
         name: metadata.name,
         author: authorName,
         user_id: session.user.id,
@@ -299,7 +331,27 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         file_url: fileUrl,
         share_code: shareCode,
         preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || null
-      }]);
+      });
+
+      if (isArr && items.length > 1) {
+        for (let i = 0; i < items.length; i++) {
+          const die = items[i];
+          const dieShareCode = await compressToB64(JSON.stringify(die));
+          inserts.push({
+            name: die.name || `Die ${i+1}`,
+            author: authorName,
+            user_id: session.user.id,
+            tags: [metadata.name], // Tagged with pack name
+            type: die.type || "D6",
+            color: die.color || "#3b82f6",
+            file_url: null,
+            share_code: dieShareCode,
+            preview_face: die.faceContent ? die.faceContent[0] : null
+          });
+        }
+      }
+
+      const { error: dbError } = await supabase.from("dice_packs").insert(inserts);
 
       if (dbError) throw dbError;
       setStatus("success");
@@ -407,6 +459,30 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                         className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-2 mt-1 text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors"
                       />
                     </div>
+
+                    {packItems.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-white/5">
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2 mb-2 block">{lang === "es" ? "Dados en este pack (Opcional)" : "Dice in this pack (Optional)"}</label>
+                        <div className="space-y-2 max-h-32 overflow-y-auto scrollbar-hide pr-2">
+                          {packItems.map((item, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center text-[10px] font-black border border-white/10" style={{ backgroundColor: item.color }}>{item.type.replace("D", "")}</div>
+                              <input 
+                                type="text"
+                                value={item.name}
+                                onChange={e => {
+                                  const newItems = [...packItems];
+                                  newItems[idx].name = e.target.value;
+                                  setPackItems(newItems);
+                                }}
+                                placeholder={lang === "es" ? "Nombre del dado" : "Die name"}
+                                className="w-full bg-black/40 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs font-bold focus:outline-none focus:border-blue-500 transition-colors"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
