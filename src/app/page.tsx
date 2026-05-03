@@ -226,8 +226,9 @@ export default function Home() {
     setSelectedDice(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const deleteDice = async (id: string) => {
-    if (!isAdmin) return;
+  const deleteDice = async (id: string, ownerId?: string) => {
+    const isOwner = user && ownerId === user.id;
+    if (!isAdmin && !isOwner) return;
     if (!confirm(lang === "es" ? "¿Seguro que quieres borrar este dado?" : "Are you sure you want to delete this die?")) return;
     const { error } = await supabase.from("dice_packs").update({ deleted_at: new Date().toISOString() }).eq("id", id);
     if (!error) fetchDice();
@@ -530,7 +531,9 @@ export default function Home() {
                 key={die.id} 
                 whileHover={{ y: -2 }} 
                 onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                className={`${die.type === 'PACK' ? "bg-zinc-800/40 border-zinc-700/50" : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
+                className={`${die.type === 'PACK' 
+                  ? "bg-indigo-900/10 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.05)] ring-1 ring-indigo-500/20" 
+                  : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
               >
                 
                 {/* Top: Name & Game & Multi-select Checkbox */}
@@ -556,36 +559,40 @@ export default function Home() {
                       className={`rounded-lg flex items-center justify-center font-black overflow-hidden shadow-2xl border border-white/10 ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} 
                       style={{ 
                         backgroundColor: die.color,
-                        color: die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1] || "#ffffff"
+                        color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
                       }}
                     >
-                      {die.preview_face ? (
+                      {die.preview_face && die.preview_face.length > 10 ? (
                         die.preview_face.includes("<svg") ? (
                           <div 
-                            className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} 
+                            className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"} flex items-center justify-center`} 
                             style={{ 
-                              backgroundColor: die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1] || "#ffffff",
-                              maskImage: `url('data:image/svg+xml;utf8,${encodeURIComponent(die.preview_face)}')`,
-                              WebkitMaskImage: `url('data:image/svg+xml;utf8,${encodeURIComponent(die.preview_face)}')`,
-                              maskSize: 'contain',
-                              WebkitMaskSize: 'contain',
-                              maskRepeat: 'no-repeat',
-                              WebkitMaskRepeat: 'no-repeat',
-                              maskPosition: 'center',
-                              WebkitMaskPosition: 'center'
-                            }} 
+                              color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
+                            }}
+                            dangerouslySetInnerHTML={{ 
+                              __html: die.preview_face
+                                .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block" ')
+                                .replace(/fill="[^"]*"/g, 'fill="currentColor"')
+                                .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
+                            }}
                           />
-                        ) : die.preview_face.startsWith("http") ? (
+                        ) : (die.preview_face.startsWith("http") || die.preview_face.startsWith("blob:") || die.preview_face.startsWith("data:")) ? (
                           <img src={die.preview_face} alt="Preview" className="w-full h-full object-contain pointer-events-none" />
                         ) : (
-                          <span>{die.preview_face}</span>
+                          <span className="leading-none">{die.preview_face.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : die.preview_face}</span>
                         )
                       ) : (
-                        die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : die.type.replace("D", "")
+                        die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
                       )}
                     </div>
-                   <div className="absolute top-2 right-2">
-                      <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black text-zinc-400 uppercase border border-white/5">{die.type}</span>
+                   <div className="absolute top-2 right-2 flex gap-1">
+                      {die.type === 'PACK' && (
+                        <div className="bg-indigo-500/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-indigo-500/30 flex items-center gap-1">
+                          <Package className="w-2 h-2 text-indigo-400" />
+                          <span className="text-[7px] font-black text-indigo-400 uppercase tracking-tighter">PACK</span>
+                        </div>
+                      )}
+                      <span className={`bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase border border-white/5 ${die.type === 'PACK' ? "text-indigo-300" : "text-zinc-400"}`}>{die.type}</span>
                    </div>
                 </div>
 
@@ -647,7 +654,7 @@ export default function Home() {
                     </div>
                   )}
                   
-                  {isAdmin && !showDeleted && (
+                  {(isAdmin || (user && die.user_id === user.id)) && !showDeleted && (
                     <div className="flex gap-1">
                       <button 
                         onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} 
@@ -656,7 +663,7 @@ export default function Home() {
                         EDIT
                       </button>
                       <button 
-                        onClick={(e) => { e.stopPropagation(); deleteDice(die.id); }} 
+                        onClick={(e) => { e.stopPropagation(); deleteDice(die.id, die.user_id); }} 
                         className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all"
                       >
                         <Trash2 className="w-3 h-3" />

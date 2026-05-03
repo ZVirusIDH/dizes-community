@@ -101,8 +101,35 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
           
           <div className="p-6 md:p-8 flex items-start justify-between border-b border-white/5 bg-black/20">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl" style={{ backgroundColor: pack.color }}>
-                {pack.type === 'PACK' ? <Package className="w-7 h-7" /> : pack.type.replace("D", "")}
+              <div 
+                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl overflow-hidden border border-white/10" 
+                style={{ 
+                  backgroundColor: pack.color,
+                  color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
+                }}
+              >
+                {pack.preview_face && pack.preview_face.length > 10 ? (
+                  pack.preview_face.includes("<svg") ? (
+                    <div 
+                      className="w-10 h-10 flex items-center justify-center" 
+                      style={{ 
+                        color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
+                      }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: pack.preview_face
+                          .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block" ')
+                          .replace(/fill="[^"]*"/g, 'fill="currentColor"')
+                          .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
+                      }}
+                    />
+                  ) : pack.preview_face.startsWith("http") ? (
+                    <img src={pack.preview_face} alt="Preview" className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="leading-none">{pack.preview_face}</span>
+                  )
+                ) : (
+                  pack.type === 'PACK' ? <Package className="w-7 h-7" /> : <span className="leading-none">{pack.type.replace("D", "")}</span>
+                )}
               </div>
                <div>
                 <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none">{pack.name}</h2>
@@ -162,7 +189,8 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           const fileName = isFile ? trimmed.replace("file://", "") : "";
                           
                           const faceType = die.faceContentTypes?.[fIdx] || 'NUMBERS';
-                          const isIcon = isSvg || isFile || isAsset;
+                          const isRemote = trimmed.startsWith("http://") || trimmed.startsWith("https://");
+                          const isIcon = isSvg || isFile || isAsset || isRemote;
                           
                           // Convert Android coordinates to Percentages (Base 120)
                           // In CSS, translate(%) is relative to the element itself.
@@ -219,9 +247,10 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
 
                           if (isIcon) {
                             let url = "";
-                            if (isSvg) url = `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
+                            if (isSvg) url = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(content.replace(/<svg/i, '<svg fill="black"'))))}`;
                             else if (isFile) url = imageUrls[fileName] || "";
                             else if (isAsset) url = `/${trimmed.replace("asset:", "")}`;
+                            else if (isRemote) url = trimmed;
 
                             return (
                               <div style={containerStyle}>
