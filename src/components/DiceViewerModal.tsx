@@ -104,9 +104,12 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl" style={{ backgroundColor: pack.color }}>
                 {pack.type === 'PACK' ? <Package className="w-7 h-7" /> : pack.type.replace("D", "")}
               </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase">{pack.name}</h2>
-                <div className="flex gap-2 items-center mt-1">
+               <div>
+                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none">{pack.name}</h2>
+                {pack.tags && pack.tags.length > 0 && (
+                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1 opacity-70">{pack.tags[0]}</p>
+                )}
+                <div className="flex gap-2 items-center mt-3">
                   <span className="text-xs font-bold text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">@{pack.author}</span>
                   <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full uppercase">{pack.type}</span>
                 </div>

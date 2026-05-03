@@ -24,7 +24,7 @@ const t = {
     publish: "Publicar Dado",
     cancel: "Cancelar",
     name: "Nombre del pack",
-    tags: "Etiquetas (separadas por comas)",
+    tags: "Juego al que pertenece",
     description: "Descripción",
   },
   en: {
@@ -38,7 +38,7 @@ const t = {
     publish: "Publish Dice",
     cancel: "Cancel",
     name: "Pack Name",
-    tags: "Tags (comma separated)",
+    tags: "Game name",
     description: "Description",
   }
 };
