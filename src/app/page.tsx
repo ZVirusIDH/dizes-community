@@ -80,6 +80,7 @@ export default function Home() {
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [isActualMobile, setIsActualMobile] = useState(false);
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
 
   const loadUserProfile = async (userId: string) => {
@@ -101,6 +102,7 @@ export default function Home() {
     
     const checkMobile = () => {
       const isMob = window.innerWidth < 768;
+      setIsActualMobile(isMob);
       if (isMob) setColumns(3);
     };
     checkMobile();
