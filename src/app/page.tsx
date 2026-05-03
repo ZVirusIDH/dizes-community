@@ -247,9 +247,9 @@ export default function Home() {
     }
   };
 
-  const t = translations[lang];
-
   if (!isMounted) return null;
+
+  const t = translations[lang];
 
   // Clases dinámicas para forzar el modo móvil
   const mobileContainerClass = isForcedMobile ? "max-w-[375px] mx-auto border-x border-white/10 shadow-2xl" : "w-full";
@@ -276,8 +276,12 @@ export default function Home() {
     return matchesName || matchesTags;
   });
 
+  const gridColsClass = viewMode === "list" ? "grid-cols-1" : "grid-cols-" + (columns || 6);
+
+  const mainClass = "flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip " + mobileContainerClass;
+
   return (
-    <div className={`flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip ${mobileContainerClass}`}>
+    <div className={mainClass}>
       {/* Navbar */}
       <nav className="glass sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-white/5 gap-4">
         <div className="flex items-center gap-3 shrink-0">
