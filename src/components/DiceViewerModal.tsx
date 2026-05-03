@@ -262,19 +262,31 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
             )}
           </div>
 
-          <div className="p-6 bg-black/40 border-t border-white/5 flex gap-4">
-            {pack.file_url && (
-              <a href={pack.file_url} download className="flex-1 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
-                <Download className="w-4 h-4" />
-                {lang === 'es' ? 'Descargar Archivo' : 'Download File'}
-              </a>
-            )}
+          <div className="p-6 bg-black/40 border-t border-white/5 flex flex-col sm:flex-row gap-4">
             {pack.share_code && (
-              <button onClick={copyCode} className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
-                {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                {copied ? (lang === 'es' ? 'Copiado!' : 'Copied!') : (lang === 'es' ? 'Copiar Código' : 'Copy Code')}
+              <button 
+                onClick={() => {
+                  const encoded = encodeURIComponent(pack.share_code);
+                  window.location.href = `dizes://community?code=${encoded}`;
+                }} 
+                className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                {lang === 'es' ? 'Abrir en Dizes App' : 'Open in Dizes App'}
               </button>
             )}
+            <div className="flex-1 flex gap-3">
+              {pack.file_url && (
+                <a href={pack.file_url} download className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-colors flex items-center justify-center gap-2">
+                  <Download className="w-4 h-4" />
+                </a>
+              )}
+              {pack.share_code && (
+                <button onClick={copyCode} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
+                  {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+              )}
+            </div>
           </div>
         </motion.div>
       </div>
