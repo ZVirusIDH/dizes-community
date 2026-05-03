@@ -19,7 +19,7 @@ const t = {
     validating: "Validando archivo...",
     success: "¡Archivo válido! Listo para subir.",
     errorInvalid: "Archivo no válido. Asegúrate de que sea un archivo .dizes exportado desde la app.",
-    errorNoData: "El archivo está corrupto (falta data.json).",
+    errorNoData: "El archivo está corrupto (falta configuración).",
     uploading: "Subiendo a la comunidad...",
     publish: "Publicar Dado",
     cancel: "Cancelar",
@@ -33,7 +33,7 @@ const t = {
     validating: "Validating file...",
     success: "Valid file! Ready to upload.",
     errorInvalid: "Invalid file. Make sure it's a .dizes file exported from the app.",
-    errorNoData: "File is corrupt (missing data.json).",
+    errorNoData: "File is corrupt (missing configuration).",
     uploading: "Uploading to community...",
     publish: "Publish Dice",
     cancel: "Cancel",
@@ -146,8 +146,11 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
     try {
       const zip = new JSZip();
       const content = await zip.loadAsync(selectedFile);
-      const dataFile = content.file("data.json") || content.file("config.json");
-      if (!dataFile) throw new Error("No data.json or config.json");
+      const dataFile = content.file(/.*\.json$/)[0];
+      if (!dataFile) throw new Error("No JSON configuration found in .dizes file");
+
+      const jsonPath = dataFile.name;
+      const baseDir = jsonPath.includes("/") ? jsonPath.substring(0, jsonPath.lastIndexOf("/") + 1) : "";
 
       const data = JSON.parse(await dataFile.async("string"));
       const isPack = Array.isArray(data);
@@ -167,10 +170,12 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const images: {[path: string]: Blob} = {};
       const previews: {[path: string]: string} = {};
       
-      const imageEntries = Object.keys(content.files).filter(k => k.startsWith("images/"));
+      const imagesPrefix = baseDir + "images/";
+      const imageEntries = Object.keys(content.files).filter(k => k.startsWith(imagesPrefix));
       for (const entry of imageEntries) {
+        if (content.files[entry].dir) continue;
         const blob = await content.files[entry].async("blob");
-        const name = entry.replace("images/", "");
+        const name = entry.replace(imagesPrefix, "");
         images[name] = blob;
         previews[name] = URL.createObjectURL(blob);
       }
@@ -204,22 +209,10 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       
       setFile(selectedFile);
       setStatus("success");
-    } catch (err) {
-      // Intento alternativo: Quizá es un archivo de texto con el código base64 exportado así
-      try {
-        const text = await selectedFile.text();
-        if (text.match(/[A-Za-z0-9+/=]{20,}/)) {
-          await validateCode(text);
-          if (status !== "error") {
-             setFile(selectedFile);
-             return;
-          }
-        }
-      } catch (fallbackErr) {
-          // Ignorar y mostrar error original
-      }
+    } catch (err: any) {
+      console.error("Validation error:", err);
       setStatus("error");
-      setErrorMsg(dict.errorNoData);
+      setErrorMsg(`${dict.errorNoData} (Detail: ${err.message || 'unknown error'})`);
     }
   };
 
@@ -270,7 +263,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
 
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
-        const dataFile = zipContent.file("data.json") || zipContent.file("config.json");
+        const dataFile = zipContent.file(/.*\.json$/)[0];
         if (dataFile) {
           const jsonStr = await dataFile.async("string");
           let diceData = JSON.parse(jsonStr);
@@ -309,7 +302,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         const { error: storageError } = await supabase.storage.from("dice-files").upload(fileName, file);
         if (storageError) throw storageError;
         const { data: urlData } = supabase.storage.from("dice-files").getPublicUrl(fileName);
-        fileUrl = urlData.publicUrl;
+        fileUrl = urlData.publicUrl || "";
       } else if (activeTab === "code") {
          const jsonStr = await decodeBase64Gzip(rawCode);
          const decoded = JSON.parse(jsonStr);
@@ -328,9 +321,9 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         tags: [metadata.tags],
         type: metadata.type,
         color: metadata.color,
-        file_url: fileUrl,
+        file_url: fileUrl || "",
         share_code: shareCode,
-        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || null
+        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || ""
       });
 
       if (isArr && items.length > 1) {
@@ -344,14 +337,20 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
             tags: [metadata.name], // Tagged with pack name
             type: die.type || "D6",
             color: die.color || "#3b82f6",
-            file_url: null,
+            file_url: "",
             share_code: dieShareCode,
-            preview_face: die.faceContent ? die.faceContent[0] : null
+            preview_face: die.faceContent ? die.faceContent[0] : ""
           });
         }
       }
 
-      const { error: dbError } = await supabase.from("dice_packs").insert(inserts);
+      const cleanInserts = inserts.map(item => ({
+        ...item,
+        file_url: item.file_url || "",
+        preview_face: item.preview_face || ""
+      }));
+
+      const { error: dbError } = await supabase.from("dice_packs").insert(cleanInserts);
 
       if (dbError) throw dbError;
       setStatus("success");
@@ -369,7 +368,31 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
           
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl overflow-hidden">
+            
+            {/* Status Overlay */}
+            <AnimatePresence>
+              {(status === "uploading" || status === "validating") && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-[101] bg-zinc-900/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
+                >
+                  <div className="w-24 h-24 bg-blue-600/10 rounded-[2rem] flex items-center justify-center mb-8 relative">
+                    <div className="absolute inset-0 bg-blue-500/20 animate-ping rounded-[2rem]" />
+                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin relative z-10" />
+                  </div>
+                  <h3 className="text-2xl font-black mb-2 uppercase tracking-tighter italic">
+                    {status === "uploading" ? (lang === "es" ? "SUBIENDO..." : "UPLOADING...") : (lang === "es" ? "VALIDANDO..." : "VALIDATING...")}
+                  </h3>
+                  <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest opacity-60">
+                    {status === "uploading" ? (lang === "es" ? "Preparando tus dados para la comunidad" : "Preparing your dice for the community") : (lang === "es" ? "Comprobando integridad del archivo" : "Checking file integrity")}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-black tracking-tighter uppercase">{status === "success" ? (lang === "es" ? "CONFIRMAR" : "CONFIRM") : dict.title}</h2>
               <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X className="w-6 h-6" /></button>

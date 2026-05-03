@@ -55,7 +55,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
         const blob = await response.blob();
         const zip = new JSZip();
         const content = await zip.loadAsync(blob);
-        const dataFile = content.file("data.json") || content.file("config.json");
+        const dataFile = content.file("data.json") || content.file("config.json") || content.file(/.*\.json$/)[0];
         if (dataFile) {
           const jsonStr = await dataFile.async("string");
           const parsed = JSON.parse(jsonStr);
