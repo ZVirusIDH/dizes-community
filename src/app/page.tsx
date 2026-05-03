@@ -101,7 +101,6 @@ export default function Home() {
     
     const checkMobile = () => {
       const isMob = window.innerWidth < 768;
-      setIsActualMobile(isMob);
       if (isMob) setColumns(3);
     };
     checkMobile();
