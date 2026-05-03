@@ -270,10 +270,10 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       let inserts: any[] = [];
       let isArr = false;
       let items: any[] = [];
+      const uploadedImages: {[path: string]: string} = {};
 
       if (activeTab === "file" && file) {
         const timestamp = Date.now();
-        const uploadedImages: {[path: string]: string} = {};
 
         for (const [name, blob] of Object.entries(extractedImages)) {
           const path = `assets/${timestamp}_${name}`;
@@ -338,11 +338,19 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       }
 
       // Determine the correct preview face content (ensure it's the uploaded URL if it was a local file)
-      let finalPreviewFace = faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || "";
-      if (finalPreviewFace.startsWith("file://") || finalPreviewFace.startsWith("blob:")) {
-        const name = finalPreviewFace.substring(finalPreviewFace.lastIndexOf("/") + 1);
-        finalPreviewFace = uploadedImages[name] || finalPreviewFace;
+      let primary = faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || "";
+      if (primary.startsWith("file://") || primary.startsWith("blob:")) {
+        const name = primary.substring(primary.lastIndexOf("/") + 1);
+        primary = uploadedImages[name] || primary;
       }
+      
+      let secondary = faces[selectedFaceIdx]?.secondaryContent || "";
+      if (secondary.startsWith("file://") || secondary.startsWith("blob:")) {
+        const name = secondary.substring(secondary.lastIndexOf("/") + 1);
+        secondary = uploadedImages[name] || secondary;
+      }
+
+      const combinedPreview = secondary ? `${primary}_DZS_SEP_${secondary}` : primary;
 
       inserts.push({
         name: metadata.name,
@@ -353,7 +361,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         color: metadata.color,
         file_url: fileUrl || "",
         share_code: shareCode,
-        preview_face: finalPreviewFace,
+        preview_face: combinedPreview,
         is_published: metadata.isPublished,
         status: moderationStatus
       });

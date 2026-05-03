@@ -186,89 +186,57 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           const isSvg = trimmed.includes("<svg");
                           const isFile = trimmed.startsWith("file://");
                           const isAsset = trimmed.startsWith("asset:");
-                          const fileName = isFile ? trimmed.replace("file://", "") : "";
-                          
-                          const faceType = die.faceContentTypes?.[fIdx] || 'NUMBERS';
                           const isRemote = trimmed.startsWith("http://") || trimmed.startsWith("https://");
                           const isIcon = isSvg || isFile || isAsset || isRemote;
+                          const fileName = isFile ? trimmed.replace("file://", "") : "";
                           
-                          // Convert Android coordinates to Percentages (Base 120)
-                          // In CSS, translate(%) is relative to the element itself.
-                          // We want relative to parent, so we use top/left calc.
                           const offX = ((isIcon ? iconX : textX) / 120) * 100;
                           const offY = ((isIcon ? iconY : textY) / 120) * 100;
                           const s = (isIcon ? scale : textS);
-
-                          // Base scaling from Android (proportional to face size)
-                          let baseSizePercent = 100;
-                          if (isIcon) {
-                             if (faceType === 'ICON_NUMBER') baseSizePercent = 47;
-                             else baseSizePercent = 65;
-                          } else {
-                             if (faceType === 'ICON_NUMBER') baseSizePercent = 14;
-                             else if (faceType === 'BASIC') baseSizePercent = 85;
-                             else baseSizePercent = 75;
-                          }
-                          
-                          const effectiveColor = skipTint ? "currentColor" : faceTint;
-                          
-                          const renderImage = (url: string) => {
-                            if (skipTint) {
-                              return <img src={url} alt="Asset" className="w-full h-full object-contain" />;
-                            }
-                            return <div 
-                              className="w-full h-full"
-                              style={{ 
-                                backgroundColor: effectiveColor,
-                                maskImage: `url('${url}')`,
-                                WebkitMaskImage: `url('${url}')`,
-                                maskSize: 'contain',
-                                WebkitMaskSize: 'contain',
-                                maskRepeat: 'no-repeat',
-                                WebkitMaskRepeat: 'no-repeat',
-                                maskPosition: 'center',
-                                WebkitMaskPosition: 'center'
-                              }} 
-                            />;
-                          };
 
                           const containerStyle: React.CSSProperties = {
                             position: 'absolute',
                             left: `calc(50% + ${offX}%)`,
                             top: `calc(50% + ${offY}%)`,
-                            width: `${baseSizePercent}%`,
-                            height: `${baseSizePercent}%`,
+                            width: '100%',
+                            height: '100%',
                             transform: `translate(-50%, -50%) scale(${s})`,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            pointerEvents: 'none'
+                            pointerEvents: 'none',
+                            color: faceTint
                           };
 
                           if (isIcon) {
-                            let url = "";
-                            if (isSvg) url = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(content.replace(/<svg/i, '<svg fill="black"'))))}`;
-                            else if (isFile) url = imageUrls[fileName] || "";
-                            else if (isAsset) url = `/${trimmed.replace("asset:", "")}`;
-                            else if (isRemote) url = trimmed;
-
                             return (
                               <div style={containerStyle}>
-                                {url ? renderImage(url) : (isFile ? <span className="text-[8px] text-zinc-500">Image</span> : null)}
+                                {isSvg ? (
+                                  <div 
+                                    style={{ width: '85%', height: '85%' }} 
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: trimmed
+                                        .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
+                                        .replace(/fill="[^"]*"/g, 'fill="currentColor"')
+                                        .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
+                                    }} 
+                                  />
+                                ) : (
+                                  <img 
+                                    src={isFile ? (imageUrls[fileName] || "") : (isAsset ? `/${trimmed.replace("asset:", "")}` : trimmed)} 
+                                    style={{ width: '85%', height: '85%', objectFit: 'contain' }} 
+                                    alt="" 
+                                  />
+                                )}
                               </div>
                             );
                           }
 
-                          // Text rendering
                           return (
                             <div style={containerStyle}>
                               <span 
                                 className="font-black truncate max-w-full px-1 text-center leading-none" 
-                                style={{ 
-                                  color: faceTint, 
-                                  fontSize: '100px', // Large base for crisp scaling
-                                  transform: 'scale(0.35)' // Scale back down (normalized)
-                                }}
+                                style={{ color: faceTint, fontSize: '32px' }}
                               >
                                 {content}
                               </span>

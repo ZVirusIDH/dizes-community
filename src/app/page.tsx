@@ -563,24 +563,33 @@ export default function Home() {
                       }}
                     >
                       {die.preview_face && die.preview_face.trim().length > 0 ? (
-                        die.preview_face.includes("<svg") ? (
-                          <div 
-                            className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"} flex items-center justify-center`} 
-                            style={{ 
-                              color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
-                            }}
-                            dangerouslySetInnerHTML={{ 
-                              __html: die.preview_face
-                                .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
-                                .replace(/fill="[^"]*"/g, 'fill="currentColor"')
-                                .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
-                            }}
-                          />
-                        ) : (die.preview_face.startsWith("http") || die.preview_face.startsWith("blob:") || die.preview_face.startsWith("data:")) ? (
-                          <img src={die.preview_face} alt="Preview" className="w-full h-full object-contain pointer-events-none" />
-                        ) : (
-                          <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none`}>{die.preview_face.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : die.preview_face}</span>
-                        )
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {die.preview_face.split("_DZS_SEP_").map((part, pIdx) => (
+                            <div key={pIdx} className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              {part.includes("<svg") ? (
+                                <div 
+                                  className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"} flex items-center justify-center`} 
+                                  style={{ 
+                                    color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff"),
+                                    transform: 'scale(0.85)'
+                                  }}
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: part
+                                      .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
+                                      .replace(/fill="[^"]*"/g, 'fill="currentColor"')
+                                      .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
+                                  }}
+                                />
+                              ) : (part.startsWith("http") || part.startsWith("blob:") || part.startsWith("data:")) ? (
+                                <img src={part} alt="Preview" className="w-[85%] h-[85%] object-contain pointer-events-none" />
+                              ) : (
+                                <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none`}>
+                                  {part.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : part}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
                       )}
