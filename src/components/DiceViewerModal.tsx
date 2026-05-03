@@ -157,22 +157,36 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           const isAsset = trimmed.startsWith("asset:");
                           const fileName = isFile ? trimmed.replace("file://", "") : "";
                           
+                          const faceType = die.faceContentTypes?.[fIdx] || 'NUMBERS';
                           const isIcon = isSvg || isFile || isAsset;
+                          
+                          // Match Android scaling factors
+                          let baseScale = 1.0;
+                          if (isIcon) {
+                             if (faceType === 'ICON_NUMBER') baseScale = 0.47;
+                             else if (faceType === 'ICONS') baseScale = 0.65;
+                             else baseScale = 0.65;
+                          } else {
+                             if (faceType === 'ICON_NUMBER') baseScale = 0.14; // Text in icon+number mode
+                             else if (faceType === 'BASIC') baseScale = 0.52;
+                             else baseScale = 0.45;
+                          }
+
                           const tX = isIcon ? iconX : textX;
                           const tY = isIcon ? iconY : textY;
-                          const s = isIcon ? scale : textS;
+                          const s = (isIcon ? scale : textS) * baseScale;
                           
+                          // We use a base size of 120 for offsets (matching Android logic)
                           const transform = `translate(${tX}px, ${tY}px) scale(${s})`;
                           
-                          // Determine if we should tint this specific item
                           const effectiveColor = skipTint ? "currentColor" : faceTint;
                           
                           const renderImage = (url: string) => {
                             if (skipTint) {
-                              return <img src={url} alt="Asset" className="w-[70%] h-[70%] object-contain" />;
+                              return <img src={url} alt="Asset" className="w-full h-full object-contain" />;
                             }
                             return <div 
-                              className="w-[70%] h-[70%]"
+                              className="w-full h-full"
                               style={{ 
                                 backgroundColor: effectiveColor,
                                 maskImage: `url('${url}')`,
@@ -190,26 +204,32 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           if (isSvg) {
                             const svgDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
                             return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              {renderImage(svgDataUri)}
+                              <div className="w-full h-full flex items-center justify-center">
+                                {renderImage(svgDataUri)}
+                              </div>
                             </div>;
                           }
 
                           if (isFile) {
                             const url = imageUrls[fileName];
                             return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              {url ? renderImage(url) : <span className="text-[8px] text-zinc-500">Image</span>}
+                              <div className="w-full h-full flex items-center justify-center">
+                                {url ? renderImage(url) : <span className="text-[8px] text-zinc-500">Image</span>}
+                              </div>
                             </div>;
                           }
 
                           if (isAsset) {
                             const url = `/${trimmed.replace("asset:", "")}`;
                             return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              {renderImage(url)}
+                              <div className="w-full h-full flex items-center justify-center">
+                                {renderImage(url)}
+                              </div>
                             </div>;
                           }
 
                           return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                            <span className="font-black text-3xl truncate max-w-full px-1 text-center" style={{ color: faceTint }}>{content}</span>
+                            <span className="font-black text-[120px] truncate max-w-full px-1 text-center" style={{ color: faceTint }}>{content}</span>
                           </div>;
                         };
 
@@ -217,29 +237,12 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           <div key={fIdx} className="aspect-square rounded-2xl flex items-center justify-center relative group p-1 shadow-inner overflow-hidden" style={{ backgroundColor: faceBg }}>
                             <span className="absolute top-1 left-1.5 text-[7px] font-black mix-blend-difference text-white/40 z-10">{fIdx + 1}</span>
                             
-                            <div className="w-full h-full relative flex flex-col items-center justify-center">
-                               {/* Number at top if it's icon+number mode */}
-                               {die.faceContentTypes?.[fIdx] === 'ICON_NUMBER' ? (
-                                 <div className="flex flex-col items-center justify-center w-full h-full p-1">
-                                    <span 
-                                      className="text-[9px] font-black leading-none mb-auto pt-1" 
-                                      style={{ 
-                                        color: faceTint,
-                                        transform: `translate(${textX}px, ${textY}px) scale(${textS})`
-                                      }}
-                                    >
-                                      {mainContent}
-                                    </span>
-                                    <div className="flex-1 w-full flex items-center justify-center pb-1">
-                                      {renderContent(secContent, true)}
-                                    </div>
-                                 </div>
-                               ) : (
-                                 <>
-                                   {renderContent(mainContent)}
-                                   {secContent && renderContent(secContent, true)}
-                                 </>
-                               )}
+                            {/* Virtual 120px container to match Android coordinates */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-[120px] h-[120px] relative shrink-0" style={{ transform: 'scale(0.66)' }}> {/* scale(0.66) to fit approx 80px face */}
+                                {renderContent(mainContent)}
+                                {secContent && renderContent(secContent, true)}
+                              </div>
                             </div>
                           </div>
                         );
