@@ -535,7 +535,7 @@ export default function Home() {
                   whileHover={{ y: -2 }} 
                   onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
                   className={`${isRealPack 
-                    ? "bg-indigo-950/20 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.05)] ring-1 ring-indigo-500/20" 
+                    ? "bg-gradient-to-br from-indigo-500/20 via-indigo-500/10 to-purple-500/10 border-indigo-400/50 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-400/30" 
                     : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
                 >
                   
