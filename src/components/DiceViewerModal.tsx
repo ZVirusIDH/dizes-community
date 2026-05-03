@@ -169,10 +169,10 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           
                           const renderImage = (url: string) => {
                             if (skipTint) {
-                              return <img src={url} alt="Asset" className="w-[60%] h-[60%] object-contain" />;
+                              return <img src={url} alt="Asset" className="w-[70%] h-[70%] object-contain" />;
                             }
                             return <div 
-                              className="w-[60%] h-[60%]"
+                              className="w-[70%] h-[70%]"
                               style={{ 
                                 backgroundColor: effectiveColor,
                                 maskImage: `url('${url}')`,
@@ -214,11 +214,32 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                         };
 
                         return (
-                          <div key={fIdx} className="aspect-square rounded-2xl flex flex-col items-center justify-center relative group p-2 shadow-inner" style={{ backgroundColor: faceBg }}>
-                            <span className="absolute top-1.5 left-2 text-[8px] font-black mix-blend-difference text-white/50 z-10">{fIdx + 1}</span>
-                            <div className="absolute inset-0 overflow-hidden rounded-2xl">
-                               {renderContent(mainContent)}
-                               {secContent && renderContent(secContent, true)}
+                          <div key={fIdx} className="aspect-square rounded-2xl flex items-center justify-center relative group p-1 shadow-inner overflow-hidden" style={{ backgroundColor: faceBg }}>
+                            <span className="absolute top-1 left-1.5 text-[7px] font-black mix-blend-difference text-white/40 z-10">{fIdx + 1}</span>
+                            
+                            <div className="w-full h-full relative flex flex-col items-center justify-center">
+                               {/* Number at top if it's icon+number mode */}
+                               {die.faceContentTypes?.[fIdx] === 'ICON_NUMBER' ? (
+                                 <div className="flex flex-col items-center justify-center w-full h-full p-1">
+                                    <span 
+                                      className="text-[9px] font-black leading-none mb-auto pt-1" 
+                                      style={{ 
+                                        color: faceTint,
+                                        transform: `translate(${textX}px, ${textY}px) scale(${textS})`
+                                      }}
+                                    >
+                                      {mainContent}
+                                    </span>
+                                    <div className="flex-1 w-full flex items-center justify-center pb-1">
+                                      {renderContent(secContent, true)}
+                                    </div>
+                                 </div>
+                               ) : (
+                                 <>
+                                   {renderContent(mainContent)}
+                                   {secContent && renderContent(secContent, true)}
+                                 </>
+                               )}
                             </div>
                           </div>
                         );
