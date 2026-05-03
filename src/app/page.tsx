@@ -397,9 +397,6 @@ export default function Home() {
         </div>
       </nav>
       
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
-      {user && <ProfileModal isOpen={isProfileOpen} onClose={() => { setIsProfileOpen(false); fetchDice(); }} user={user} lang={lang} isAdmin={isAdmin} isTestUser={isTestUser} setIsTestUser={setIsTestUser} />}
-
 
       {/* Main Content */}
       <main className="flex-1 px-4 py-8 w-full max-w-[1800px] mx-auto">
@@ -736,3 +733,4 @@ export default function Home() {
     </div>
   );
 }
+// Build Trigger: 2026-05-03 22:26
