@@ -366,7 +366,7 @@ export default function Home() {
       </nav>
       
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
-      {user && <ProfileModal isOpen={isProfileOpen} onClose={() => { setIsProfileOpen(false); fetchDice(); }} user={user} lang={lang} isAdmin={isAdmin} />}
+      {user && <ProfileModal isOpen={isProfileOpen} onClose={() => { setIsProfileOpen(false); fetchDice(); }} user={user} lang={lang} isAdmin={isAdmin} isTestUser={isTestUser} setIsTestUser={setIsTestUser} />}
 
 
       {/* Main Content */}
