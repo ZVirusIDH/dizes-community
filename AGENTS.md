@@ -13,6 +13,11 @@
 4. **Supabase Config:** 
    - Ensure "Site URL" in Auth settings is always `https://dizes-community.vercel.app`.
 
+5. **Custom Domain Migration (In Progress):**
+   - Domain: `dizes.zetavirus.com`
+   - CNAME: `dizes` -> `84e85453863e2b7e.vercel-dns-017.com.`
+   - Status: Pending DNS propagation. Deployment remains on `.vercel.app` for stability during tests.
+
 ## 📱 Android Build Protocol
 1. **Docker Environment:** All production builds (v1.13+) must be generated using the Docker-based build environment.
 2. **Push to Private:** Always push updates to `ZVirusIDH/Dizes-Android`.

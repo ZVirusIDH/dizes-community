@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Download, Copy, CheckCircle2, Loader2, Package } from "lucide-react";
+import { X, Download, Copy, CheckCircle2, Loader2, Package, Smartphone } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
 
