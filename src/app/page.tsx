@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2 } from "lucide-react";
+import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
