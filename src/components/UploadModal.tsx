@@ -351,12 +351,13 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       }
 
       const combinedPreview = secondary ? `${primary}_DZS_SEP_${secondary}` : primary;
+      const diceCount = items.length;
 
       inserts.push({
         name: metadata.name,
         author: authorName,
         user_id: session.user.id,
-        tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`],
+        tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`, `_count:${diceCount}`],
         type: metadata.type,
         color: metadata.color,
         file_url: fileUrl || "",

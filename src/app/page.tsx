@@ -525,54 +525,37 @@ export default function Home() {
               <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
               <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
             </div>
-          ) : (
-            dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
-              <motion.div 
-                key={die.id} 
-                whileHover={{ y: -2 }} 
-                onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                className={`${die.type === 'PACK' 
-                  ? "bg-indigo-900/10 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.05)] ring-1 ring-indigo-500/20" 
-                  : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
-              >
-                
-                {/* Top: Name & Game & Multi-select Checkbox */}
-                <div className="flex items-start justify-between gap-2 min-w-0">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
-                    {die.tags && die.tags.length > 0 && (
-                      <p className="text-[8px] text-zinc-500 font-bold truncate uppercase opacity-80 leading-none">
-                        {die.tags.find((t: string) => !t.startsWith("_pfc:"))}
-                      </p>
-                    )}
-                  </div>
-                  {isAdmin && showDeleted && (
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
-                      {selectedDice.includes(die.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
-                    </div>
-                  )}
-                </div>
+            dice.filter((d: any) => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die: any) => {
+              const diceCount = parseInt(die.tags?.find((t: string) => t.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
+              const isRealPack = die.type === 'PACK' && diceCount > 1;
 
-                {/* Middle: Dice Preview */}
-                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full"}`}>
+              return (
+                <motion.div 
+                  key={die.id} 
+                  whileHover={{ y: -2 }} 
+                  onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
+                  className={`${isRealPack 
+                    ? "bg-indigo-950/20 border-indigo-500/30 shadow-[0_0_20px_rgba(99,102,241,0.05)] ring-1 ring-indigo-500/20" 
+                    : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
+                >
+                  
+                  {/* Left (List) or Top (Grid): Dice Preview */}
+                  <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
                     <div 
-                      className={`rounded-lg flex items-center justify-center font-black overflow-hidden shadow-2xl border border-white/10 ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} 
+                      className={`rounded-lg flex items-center justify-center font-black overflow-hidden shadow-2xl border border-white/10 relative ${viewMode === "list" ? "w-8 h-8 text-[10px]" : "w-16 h-16 text-2xl"}`} 
                       style={{ 
-                        backgroundColor: die.color,
+                        backgroundColor: die.color || "#27272a",
                         color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
                       }}
                     >
                       {die.preview_face && die.preview_face.trim().length > 0 ? (
                         <div className="relative w-full h-full flex items-center justify-center">
-                          {die.preview_face.split("_DZS_SEP_").map((part, pIdx) => (
+                          {die.preview_face.split("_DZS_SEP_").map((part: string, pIdx: number) => (
                             <div key={pIdx} className="absolute inset-0 flex items-center justify-center pointer-events-none">
                               {part.includes("<svg") ? (
                                 <div 
-                                  className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"} flex items-center justify-center`} 
-                                  style={{ 
-                                    color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff"),
-                                    transform: 'scale(0.85)'
-                                  }}
+                                  className="w-full h-full flex items-center justify-center" 
+                                  style={{ transform: 'scale(0.85)', color: 'currentColor' }}
                                   dangerouslySetInnerHTML={{ 
                                     __html: part
                                       .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
@@ -583,104 +566,93 @@ export default function Home() {
                               ) : (part.startsWith("http") || part.startsWith("blob:") || part.startsWith("data:")) ? (
                                 <img src={part} alt="Preview" className="w-[85%] h-[85%] object-contain pointer-events-none" />
                               ) : (
-                                <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none`}>
-                                  {part.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-4 h-4" /> : die.type.replace("D","")) : part}
+                                <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none text-center`}>
+                                  {part.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-full h-full p-1" /> : die.type.replace("D","")) : part}
                                 </span>
                               )}
                             </div>
                           ))}
                         </div>
                       ) : (
-                        die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
+                        die.type === 'PACK' ? <Package className="w-full h-full p-2 text-indigo-400/50" /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
                       )}
                     </div>
-                   <div className="absolute top-2 right-2 flex gap-1">
-                      {die.type === 'PACK' && (
-                        <div className="bg-indigo-500/20 backdrop-blur-md px-1.5 py-0.5 rounded-md border border-indigo-500/30 flex items-center gap-1">
-                          <Package className="w-2 h-2 text-indigo-400" />
-                          <span className="text-[7px] font-black text-indigo-400 uppercase tracking-tighter">PACK</span>
+                    
+                    {isRealPack && (
+                      <div className="absolute top-1 right-1 px-1 py-0.5 bg-indigo-500 text-white text-[7px] font-black rounded shadow shadow-indigo-500/40 uppercase">
+                        {diceCount}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right (List) or Bottom (Grid): Info */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2 min-w-0">
+                      <div className="flex flex-col gap-0.5 min-w-0">
+                        <h4 className={`font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none ${isRealPack ? "text-indigo-100" : "text-white"}`}>{die.name}</h4>
+                        <div className="flex items-center gap-1 opacity-60">
+                          <p className="text-[8px] text-zinc-500 font-bold truncate uppercase leading-none">@{die.author}</p>
+                          <span className="w-0.5 h-0.5 rounded-full bg-white/20" />
+                          <span className={`text-[8px] font-black uppercase leading-none ${isRealPack ? "text-indigo-500" : "text-zinc-600"}`}>{die.type}</span>
+                        </div>
+                      </div>
+                      {isAdmin && showDeleted && (
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
+                          {selectedDice.includes(die.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
                         </div>
                       )}
-                      <span className={`bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase border border-white/5 ${die.type === 'PACK' ? "text-indigo-300" : "text-zinc-400"}`}>{die.type}</span>
-                   </div>
-                </div>
+                    </div>
 
-                {/* Below Preview: Author */}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[9px] text-zinc-600 font-bold truncate opacity-60">@{die.author}</p>
-                </div>
-
-                {/* Bottom: Action Buttons & Stats */}
-                <div className="flex flex-col gap-1.5 mt-1">
-                  {!showDeleted ? (
-                    <div className="flex gap-1 items-stretch">
-                      {activeTab === "pending" && isAdmin ? (
-                        <button 
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            const { error } = await supabase.from("dice_packs").update({ status: 'approved' }).eq("id", die.id);
-                            if (!error) fetchDice();
-                            else alert(error.message);
-                          }}
-                          className="flex-1 bg-green-600 hover:bg-green-500 text-white h-9 rounded-xl transition-all flex items-center justify-center font-black text-[9px] uppercase tracking-widest shadow-lg shadow-green-500/20 gap-2"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          {lang === "es" ? "Aprobar" : "Approve"}
-                        </button>
-                      ) : (
-                        <>
+                    {!showDeleted ? (
+                      <div className="flex gap-1 items-stretch mt-1">
+                        {activeTab === "pending" && isAdmin ? (
                           <button 
-                            onClick={(e) => { 
-                              e.stopPropagation(); 
-                              incrementDownload(die.id, die.downloads, die.share_code);
-                              setSelectedPack(die); 
-                            }} 
-                            className="flex-1 brand-gradient hover:brightness-110 h-9 rounded-xl transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const { error } = await supabase.from("dice_packs").update({ status: 'approved' }).eq("id", die.id);
+                              if (!error) fetchDice();
+                              else alert(error.message);
+                            }}
+                            className="flex-1 bg-green-600 hover:bg-green-500 text-white h-7 rounded-lg transition-all flex items-center justify-center font-black text-[8px] uppercase tracking-widest gap-1"
                           >
-                            <Download className="w-4 h-4" />
+                            <CheckCircle2 className="w-3 h-3" />
+                            {lang === "es" ? "Aprobar" : "Approve"}
                           </button>
-                          <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 h-9 rounded-xl border border-blue-500/20 shadow-inner shrink-0">
-                            <Download className="w-3 h-3 text-blue-500" />
-                            <span className="text-[10px] font-black text-blue-400">{die.downloads || 0}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex gap-1">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); restoreDice([die.id]); }} 
-                        className="flex-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-blue-500/20 transition-all uppercase"
-                      >
-                        {lang === "es" ? "Restaurar" : "Restore"}
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); permanentDelete([die.id]); }} 
-                        className="flex-1 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all uppercase"
-                      >
-                        {lang === "es" ? "Borrar" : "Delete"}
-                      </button>
-                    </div>
-                  )}
-                  
-                  {(isAdmin || (user && die.user_id === user.id)) && !showDeleted && (
-                    <div className="flex gap-1">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} 
-                        className="flex-1 bg-white/5 hover:bg-zinc-800 text-zinc-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-white/5 transition-all"
-                      >
-                        EDIT
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteDice(die.id, die.user_id); }} 
-                        className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl text-[8px] font-black border border-red-500/20 transition-all"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                incrementDownload(die.id, die.downloads, die.share_code);
+                                setSelectedPack(die); 
+                              }} 
+                              className="flex-1 brand-gradient hover:brightness-110 h-7 rounded-lg transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
+                            >
+                              <Download className="w-3 h-3 text-white" />
+                            </button>
+                            <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 h-7 rounded-lg border border-blue-500/20 shrink-0">
+                              <span className="text-[9px] font-black text-blue-400">{die.downloads || 0}</span>
+                            </div>
+                          </>
+                        )}
+                        {(isAdmin || (user && die.user_id === user.id)) && (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} className="w-7 h-7 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all text-zinc-500 hover:text-white"><Edit2 className="w-3 h-3" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); deleteDice(die.id, die.user_id); }} className="w-7 h-7 flex items-center justify-center bg-red-500/10 hover:bg-red-500 rounded-lg border border-red-500/20 transition-all text-red-500 hover:text-white"><Trash2 className="w-3 h-3" /></button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex gap-1 mt-1">
+                        <button onClick={(e) => { e.stopPropagation(); restoreDice([die.id]); }} className="flex-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white h-7 rounded-lg text-[8px] font-black border border-blue-500/20 transition-all uppercase">RESTR</button>
+                        <button onClick={(e) => { e.stopPropagation(); permanentDelete([die.id]); }} className="flex-1 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white h-7 rounded-lg text-[8px] font-black border border-red-500/20 transition-all uppercase">DEL</button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })
+
             ))
           )}
         </div>
