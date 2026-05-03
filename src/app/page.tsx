@@ -477,7 +477,7 @@ export default function Home() {
 
                 {/* Middle: Dice Preview */}
                 <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full"}`}>
-                   <div className={`rounded-lg flex items-center justify-center text-white font-black overflow-hidden shadow-2xl ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} style={{ backgroundColor: die.color }}>
+                   <div className={`rounded-lg flex items-center justify-center text-white font-black overflow-hidden shadow-2xl border border-white/10 ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} style={{ backgroundColor: die.color }}>
                      {die.preview_face ? (
                        die.preview_face.includes("<svg") ? (
                          <div className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} dangerouslySetInnerHTML={{ __html: die.preview_face }} />
