@@ -161,22 +161,23 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           const isIcon = isSvg || isFile || isAsset;
                           
                           // Convert Android coordinates to Percentages (Base 120)
-                          const tX = ((isIcon ? iconX : textX) / 120) * 100;
-                          const tY = ((isIcon ? iconY : textY) / 120) * 100;
+                          // In CSS, translate(%) is relative to the element itself.
+                          // We want relative to parent, so we use top/left calc.
+                          const offX = ((isIcon ? iconX : textX) / 120) * 100;
+                          const offY = ((isIcon ? iconY : textY) / 120) * 100;
                           const s = (isIcon ? scale : textS);
 
                           // Base scaling from Android (proportional to face size)
                           let baseSizePercent = 100;
                           if (isIcon) {
-                             if (faceType === 'ICON_NUMBER') baseSizePercent = 47; // 0.47f
-                             else baseSizePercent = 65; // 0.65f
+                             if (faceType === 'ICON_NUMBER') baseSizePercent = 47;
+                             else baseSizePercent = 65;
                           } else {
-                             if (faceType === 'ICON_NUMBER') baseSizePercent = 14; // 0.14f
+                             if (faceType === 'ICON_NUMBER') baseSizePercent = 14;
                              else if (faceType === 'BASIC') baseSizePercent = 52;
                              else baseSizePercent = 45;
                           }
                           
-                          const transform = `translate(${tX}%, ${tY}%) scale(${s})`;
                           const effectiveColor = skipTint ? "currentColor" : faceTint;
                           
                           const renderImage = (url: string) => {
@@ -199,6 +200,19 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                             />;
                           };
 
+                          const containerStyle: React.CSSProperties = {
+                            position: 'absolute',
+                            left: `calc(50% + ${offX}%)`,
+                            top: `calc(50% + ${offY}%)`,
+                            width: `${baseSizePercent}%`,
+                            height: `${baseSizePercent}%`,
+                            transform: `translate(-50%, -50%) scale(${s})`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none'
+                          };
+
                           if (isIcon) {
                             let url = "";
                             if (isSvg) url = `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
@@ -206,29 +220,21 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                             else if (isAsset) url = `/${trimmed.replace("asset:", "")}`;
 
                             return (
-                              <div 
-                                className="absolute inset-0 flex items-center justify-center pointer-events-none" 
-                                style={{ transform }}
-                              >
-                                <div style={{ width: `${baseSizePercent}%`, height: `${baseSizePercent}%` }} className="flex items-center justify-center">
-                                  {url ? renderImage(url) : (isFile ? <span className="text-[8px] text-zinc-500">Image</span> : null)}
-                                </div>
+                              <div style={containerStyle}>
+                                {url ? renderImage(url) : (isFile ? <span className="text-[8px] text-zinc-500">Image</span> : null)}
                               </div>
                             );
                           }
 
                           // Text rendering
                           return (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
+                            <div style={containerStyle}>
                               <span 
                                 className="font-black truncate max-w-full px-1 text-center leading-none" 
                                 style={{ 
                                   color: faceTint, 
-                                  fontSize: `${baseSizePercent}%`,
-                                  height: `${baseSizePercent}%`,
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
+                                  fontSize: '100px', // Large base for crisp scaling
+                                  transform: 'scale(0.12)' // Scale back down (normalized)
                                 }}
                               >
                                 {content}
@@ -241,7 +247,6 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           <div key={fIdx} className="aspect-square rounded-2xl flex items-center justify-center relative group p-1 shadow-inner overflow-hidden" style={{ backgroundColor: faceBg }}>
                             <span className="absolute top-1 left-1.5 text-[7px] font-black mix-blend-difference text-white/40 z-10">{fIdx + 1}</span>
                             
-                            {/* Standardized container */}
                             <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
                                 {renderContent(mainContent)}
                                 {secContent && renderContent(secContent, true)}
