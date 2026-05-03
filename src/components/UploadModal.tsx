@@ -268,10 +268,17 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
           // Generar nuevo share_code comprimido con las URLs públicas
           const updatedJson = JSON.stringify(isArr ? items : items[0]);
           const blob = new Blob([updatedJson]);
+          // @ts-ignore
           const stream = blob.stream().pipeThrough(new CompressionStream("gzip"));
           const compressed = await new Response(stream).arrayBuffer();
-          // @ts-ignore
-          shareCode = btoa(String.fromCharCode(...new Uint8Array(compressed)));
+          
+          // Optimized binary to base64 to avoid stack overflow
+          const uint8 = new Uint8Array(compressed);
+          let binary = "";
+          for (let i = 0; i < uint8.length; i++) {
+            binary += String.fromCharCode(uint8[i]);
+          }
+          shareCode = btoa(binary);
         }
 
         const fileName = `packs/${timestamp}_${file.name}`;

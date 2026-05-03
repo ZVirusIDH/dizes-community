@@ -19,6 +19,7 @@ const decodeBase64Gzip = async (base64str: string): Promise<string> => {
     for (let i = 0; i < binData.length; i++) {
       ui8Data[i] = binData.charCodeAt(i);
     }
+    // @ts-ignore
     const stream = new Blob([ui8Data]).stream().pipeThrough(new DecompressionStream("gzip"));
     const response = new Response(stream);
     return await response.text();
