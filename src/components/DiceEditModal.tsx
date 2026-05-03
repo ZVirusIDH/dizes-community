@@ -74,7 +74,7 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
         .from("dice_packs")
         .update({
           name: metadata.name,
-          tags: [metadata.tags],
+          tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`],
           type: metadata.type,
           color: metadata.color,
           preview_face: metadata.preview_face

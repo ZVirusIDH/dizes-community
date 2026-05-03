@@ -452,7 +452,7 @@ export default function Home() {
               <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
             </div>
           ) : (
-            dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
+            dice.filter(d => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die) => (
               <motion.div 
                 key={die.id} 
                 whileHover={{ y: -2 }} 
@@ -465,7 +465,9 @@ export default function Home() {
                   <div className="flex flex-col gap-1 min-w-0">
                     <h4 className="font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none">{die.name}</h4>
                     {die.tags && die.tags.length > 0 && (
-                      <p className="text-[8px] text-zinc-500 font-bold truncate uppercase opacity-80 leading-none">{die.tags[0]}</p>
+                      <p className="text-[8px] text-zinc-500 font-bold truncate uppercase opacity-80 leading-none">
+                        {die.tags.find((t: string) => !t.startsWith("_pfc:"))}
+                      </p>
                     )}
                   </div>
                   {isAdmin && showDeleted && (
@@ -477,17 +479,36 @@ export default function Home() {
 
                 {/* Middle: Dice Preview */}
                 <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-10 h-10" : "aspect-square w-full"}`}>
-                   <div className={`rounded-lg flex items-center justify-center text-white font-black overflow-hidden shadow-2xl border border-white/10 ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} style={{ backgroundColor: die.color }}>
-                     {die.preview_face ? (
-                       die.preview_face.includes("<svg") ? (
-                         <div className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} dangerouslySetInnerHTML={{ __html: die.preview_face }} />
-                       ) : (
-                         <span>{die.preview_face}</span>
-                       )
-                     ) : (
-                       die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : die.type.replace("D", "")
-                     )}
-                   </div>
+                    <div 
+                      className={`rounded-lg flex items-center justify-center font-black overflow-hidden shadow-2xl border border-white/10 ${viewMode === "list" ? "w-6 h-6 text-[10px]" : "w-16 h-16 text-2xl"}`} 
+                      style={{ 
+                        backgroundColor: die.color,
+                        color: die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1] || "#ffffff"
+                      }}
+                    >
+                      {die.preview_face ? (
+                        die.preview_face.includes("<svg") ? (
+                          <div 
+                            className={`${viewMode === "list" ? "w-4 h-4" : "w-10 h-10"}`} 
+                            style={{ 
+                              backgroundColor: die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1] || "#ffffff",
+                              maskImage: `url('data:image/svg+xml;utf8,${encodeURIComponent(die.preview_face)}')`,
+                              WebkitMaskImage: `url('data:image/svg+xml;utf8,${encodeURIComponent(die.preview_face)}')`,
+                              maskSize: 'contain',
+                              WebkitMaskSize: 'contain',
+                              maskRepeat: 'no-repeat',
+                              WebkitMaskRepeat: 'no-repeat',
+                              maskPosition: 'center',
+                              WebkitMaskPosition: 'center'
+                            }} 
+                          />
+                        ) : (
+                          <span>{die.preview_face}</span>
+                        )
+                      ) : (
+                        die.type === 'PACK' ? <Package className={`${viewMode === "list" ? "w-3 h-3" : "w-8 h-8"}`} /> : die.type.replace("D", "")
+                      )}
+                    </div>
                    <div className="absolute top-2 right-2">
                       <span className="bg-black/60 backdrop-blur-md px-1.5 py-0.5 rounded-md text-[7px] font-black text-zinc-400 uppercase border border-white/5">{die.type}</span>
                    </div>

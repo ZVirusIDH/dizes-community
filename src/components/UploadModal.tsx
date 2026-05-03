@@ -341,7 +341,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         name: metadata.name,
         author: authorName,
         user_id: session.user.id,
-        tags: [metadata.tags],
+        tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`],
         type: metadata.type,
         color: metadata.color,
         file_url: fileUrl || "",
