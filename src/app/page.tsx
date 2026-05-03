@@ -13,6 +13,7 @@ import { User as SupabaseUser } from "@supabase/supabase-js";
 
 type Language = "es" | "en";
 type ViewMode = "grid" | "list";
+type TabType = "trending" | "latest" | "pending" | "downloads";
 
 const translations = {
   es: {
@@ -76,7 +77,7 @@ export default function Home() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dice, setDice] = useState<any[] | null>(null);
   const [isTestUser, setIsTestUser] = useState(false);
-   const [activeTab, setActiveTab] = useState<"trending" | "latest" | "pending">("trending");
+   const [activeTab, setActiveTab] = useState<TabType>("trending");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -146,7 +147,7 @@ export default function Home() {
 
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
-  const fetchDice = async (sort: "trending" | "latest" | "pending" = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
+  const fetchDice = async (sort: TabType = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
     try {
       let query = supabase.from("dice_packs").select("*", { count: "exact" });
       
