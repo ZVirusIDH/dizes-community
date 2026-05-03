@@ -84,7 +84,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   const validateCode = async (text: string) => {
     try {
       setStatus("validating");
-      const cleanText = text.replace(/\s/g, "");
+      // Handle potential spaces from URL decoding of '+' characters
+      const cleanText = text.replace(/\s/g, "+");
       const base64Regex = /[A-Za-z0-9+/=]{20,}/;
       const match = cleanText.match(base64Regex);
       
