@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2 } from "lucide-react";
+import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2, Edit2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
@@ -525,6 +525,7 @@ export default function Home() {
               <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
               <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
             </div>
+          ) : (
             dice.filter((d: any) => d.name?.toLowerCase().includes(search.toLowerCase()) || d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(search.toLowerCase()))).map((die: any) => {
               const diceCount = parseInt(die.tags?.find((t: string) => t.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
               const isRealPack = die.type === 'PACK' && diceCount > 1;
@@ -652,10 +653,9 @@ export default function Home() {
                 </motion.div>
               );
             })
-
-            ))
-          )}
-        </div>
+          )
+        )}
+      </div>
 
         {/* Pagination & Page Size */}
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-white/5 pt-8">
