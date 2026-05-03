@@ -65,7 +65,6 @@ export default function Home() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedPack, setSelectedPack] = useState<any | null>(null);
   const [isForcedMobile, setIsForcedMobile] = useState(false);
-  const [isActualMobile, setIsActualMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [columns, setColumns] = useState(6);
   const [search, setSearch] = useState("");
