@@ -160,23 +160,18 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                           const faceType = die.faceContentTypes?.[fIdx] || 'NUMBERS';
                           const isIcon = isSvg || isFile || isAsset;
                           
-                          // Match Android scaling factors
-                          let baseScale = 1.0;
+                          // Match Android scaling factors relative to 120px base
+                          let baseSize = 120;
                           if (isIcon) {
-                             if (faceType === 'ICON_NUMBER') baseScale = 0.47;
-                             else if (faceType === 'ICONS') baseScale = 0.65;
-                             else baseScale = 0.65;
-                          } else {
-                             if (faceType === 'ICON_NUMBER') baseScale = 0.14; // Text in icon+number mode
-                             else if (faceType === 'BASIC') baseScale = 0.52;
-                             else baseScale = 0.45;
+                             if (faceType === 'ICON_NUMBER') baseSize = 56; // ~0.47 * 120
+                             else baseSize = 78; // ~0.65 * 120
                           }
 
                           const tX = isIcon ? iconX : textX;
                           const tY = isIcon ? iconY : textY;
-                          const s = (isIcon ? scale : textS) * baseScale;
+                          const s = (isIcon ? scale : textS);
                           
-                          // We use a base size of 120 for offsets (matching Android logic)
+                          // Use absolute positioning with transform for the 120px virtual space
                           const transform = `translate(${tX}px, ${tY}px) scale(${s})`;
                           
                           const effectiveColor = skipTint ? "currentColor" : faceTint;
@@ -201,36 +196,39 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                             />;
                           };
 
-                          if (isSvg) {
-                            const svgDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
-                            return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              <div className="w-full h-full flex items-center justify-center">
-                                {renderImage(svgDataUri)}
+                          if (isIcon) {
+                            let url = "";
+                            if (isSvg) url = `data:image/svg+xml;utf8,${encodeURIComponent(content)}`;
+                            else if (isFile) url = imageUrls[fileName] || "";
+                            else if (isAsset) url = `/${trimmed.replace("asset:", "")}`;
+
+                            return (
+                              <div 
+                                className="absolute inset-0 flex items-center justify-center pointer-events-none" 
+                                style={{ transform }}
+                              >
+                                <div style={{ width: baseSize, height: baseSize }} className="flex items-center justify-center">
+                                  {url ? renderImage(url) : (isFile ? <span className="text-[8px] text-zinc-500">Image</span> : null)}
+                                </div>
                               </div>
-                            </div>;
+                            );
                           }
 
-                          if (isFile) {
-                            const url = imageUrls[fileName];
-                            return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              <div className="w-full h-full flex items-center justify-center">
-                                {url ? renderImage(url) : <span className="text-[8px] text-zinc-500">Image</span>}
-                              </div>
-                            </div>;
-                          }
-
-                          if (isAsset) {
-                            const url = `/${trimmed.replace("asset:", "")}`;
-                            return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                              <div className="w-full h-full flex items-center justify-center">
-                                {renderImage(url)}
-                              </div>
-                            </div>;
-                          }
-
-                          return <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
-                            <span className="font-black text-[120px] truncate max-w-full px-1 text-center" style={{ color: faceTint }}>{content}</span>
-                          </div>;
+                          // Text rendering
+                          const baseFontSize = faceType === 'ICON_NUMBER' ? 16 : 54;
+                          return (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ transform }}>
+                              <span 
+                                className="font-black truncate max-w-full px-1 text-center leading-tight" 
+                                style={{ 
+                                  color: faceTint, 
+                                  fontSize: `${baseFontSize}px` 
+                                }}
+                              >
+                                {content}
+                              </span>
+                            </div>
+                          );
                         };
 
                         return (
