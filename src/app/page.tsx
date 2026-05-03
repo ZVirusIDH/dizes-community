@@ -82,6 +82,8 @@ export default function Home() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [isActualMobile, setIsActualMobile] = useState(false);
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [filterType, setFilterType] = useState<"all" | "dice" | "icons">("all");
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -163,10 +165,18 @@ export default function Home() {
             // Admins see all approved ones in trending/latest
             query = query.eq("status", "approved");
           }
+
+          if (filterType === "dice") {
+            query = query.neq("type", "D2");
+          } else if (filterType === "icons") {
+            query = query.eq("type", "D2");
+          }
         }
       }
       
       if (sort === "trending") {
+        query = query.order("downloads", { ascending: false });
+      } else if (sort === "downloads") {
         query = query.order("downloads", { ascending: false });
       } else {
         query = query.order("created_at", { ascending: false });
@@ -403,36 +413,98 @@ export default function Home() {
         )}
 
         {/* Toolbar */}
-        <section className="mb-6 py-2 flex items-center justify-between border-b border-white/5">
-          <div className="flex items-center gap-1">
-             {[
-               { id: "trending", label: t.trending },
-               { id: "latest", label: t.latest },
-               ...(isAdmin ? [{ id: "pending", label: lang === "es" ? "PENDIENTES" : "PENDING" }] : [])
-             ].map((tab) => (
-               <button 
-                 key={tab.id} 
-                 onClick={() => { setActiveTab(tab.id as any); fetchDice(tab.id as any); }}
-                 className={`px-3 py-1 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-zinc-500 hover:text-white"}`}
-               >
-                 {tab.label}
-               </button>
-             ))}
+        <section className="mb-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/5 relative z-[50]">
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            {/* Main Tabs */}
+            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
+               {[
+                 { id: "trending", label: t.trending },
+                 { id: "latest", label: t.latest },
+                 ...(isAdmin ? [{ id: "pending", label: lang === "es" ? "PENDIENTES" : "PENDING" }] : [])
+               ].map((tab) => (
+                 <button 
+                   key={tab.id} 
+                   onClick={() => { setActiveTab(tab.id as any); fetchDice(tab.id as any); }}
+                   className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-zinc-500 hover:text-white"}`}
+                 >
+                   {tab.label}
+                 </button>
+               ))}
+            </div>
+
+            {/* Advanced Filters Toggle */}
+            <div className="relative">
+              <button 
+                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 group ${isFiltersOpen ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20" : "bg-white/5 border-white/5 text-zinc-500 hover:text-white hover:border-white/10"}`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t.advFilters}</span>
+              </button>
+
+              <AnimatePresence>
+                {isFiltersOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 overflow-hidden"
+                  >
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{lang === "es" ? "Tipo de Contenido" : "Content Type"}</label>
+                        <div className="flex flex-col gap-1">
+                          {[
+                            { id: "all", label: lang === "es" ? "Todo" : "All" },
+                            { id: "dice", label: lang === "es" ? "Dados" : "Dice" },
+                            { id: "icons", label: lang === "es" ? "Iconos / D2" : "Icons / D2" }
+                          ].map(opt => (
+                            <button 
+                              key={opt.id}
+                              onClick={() => { setFilterType(opt.id as any); fetchDice(activeTab, currentPage, pageSize, opt.id as any); setIsFiltersOpen(false); }}
+                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${filterType === opt.id ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-white/5">
+                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{lang === "es" ? "Ordenar por" : "Sort by"}</label>
+                        <button 
+                          onClick={() => { setActiveTab("trending"); fetchDice("trending"); setIsFiltersOpen(false); }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === "trending" ? "bg-blue-500/20 text-blue-400" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
+                        >
+                          {lang === "es" ? "Más Descargas" : "Most Downloads"}
+                        </button>
+                        <button 
+                          onClick={() => { setActiveTab("latest"); fetchDice("latest"); setIsFiltersOpen(false); }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === "latest" ? "bg-blue-500/20 text-blue-400" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
+                        >
+                          {lang === "es" ? "Más Recientes" : "Most Recent"}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
-          {viewMode === "grid" && (
-            <div className="flex items-center gap-4">
-              <div className="flex bg-zinc-900/50 rounded-md p-0.5 border border-white/5">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+            {viewMode === "grid" && (
+              <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
                 {(isActualMobile || isForcedMobile ? [2, 3, 4] : [2, 4, 6, 8, 10]).map(n => (
-                  <button key={n} onClick={() => setColumns(n)} className={`w-6 h-5 text-[9px] font-bold rounded ${columns === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
+                  <button key={n} onClick={() => setColumns(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg transition-all ${columns === n ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}>{n}</button>
                 ))}
               </div>
-            </div>
-          )}
+            )}
 
-          <div className="flex bg-zinc-900/50 rounded-md p-0.5 border border-white/5">
-            <button onClick={() => setViewMode("grid")} className={`p-1 rounded ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutGrid className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setViewMode("list")} className={`p-1 rounded ${viewMode === "list" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutList className="w-3.5 h-3.5" /></button>
+            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
+              <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}><LayoutGrid className="w-4 h-4" /></button>
+              <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}><LayoutList className="w-4 h-4" /></button>
+            </div>
           </div>
         </section>
 
@@ -457,7 +529,7 @@ export default function Home() {
                 key={die.id} 
                 whileHover={{ y: -2 }} 
                 onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
+                className={`${die.type === 'PACK' ? "bg-zinc-800/40 border-zinc-700/50" : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-1.5"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
               >
                 
                 {/* Top: Name & Game & Multi-select Checkbox */}
@@ -502,6 +574,8 @@ export default function Home() {
                               WebkitMaskPosition: 'center'
                             }} 
                           />
+                        ) : die.preview_face.startsWith("http") ? (
+                          <img src={die.preview_face} alt="Preview" className="w-full h-full object-contain pointer-events-none" />
                         ) : (
                           <span>{die.preview_face}</span>
                         )
