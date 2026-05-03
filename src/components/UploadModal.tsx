@@ -50,6 +50,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
   const [status, setStatus] = useState<"idle" | "validating" | "success" | "error" | "uploading">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [faces, setFaces] = useState<any[]>([]);
+  const [extractedImages, setExtractedImages] = useState<{[path: string]: Blob}>({});
   const [selectedFaceIdx, setSelectedFaceIdx] = useState(0);
   const [metadata, setMetadata] = useState({ name: "", tags: "", description: "", color: "#3b82f6", type: "D6" });
   const dict = t[lang];
@@ -140,6 +141,19 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const isPack = Array.isArray(data);
       const mainDie = isPack ? data[0] : data;
 
+      // Extraer imágenes del ZIP
+      const images: {[path: string]: Blob} = {};
+      const previews: {[path: string]: string} = {};
+      
+      const imageEntries = Object.keys(content.files).filter(k => k.startsWith("images/"));
+      for (const entry of imageEntries) {
+        const blob = await content.files[entry].async("blob");
+        const name = entry.replace("images/", "");
+        images[name] = blob;
+        previews[name] = URL.createObjectURL(blob);
+      }
+      setExtractedImages(images);
+
       setMetadata({
         name: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.name || selectedFile.name.replace(".dizes", "")),
         tags: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.type || "Die"),
@@ -149,12 +163,21 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       });
 
       if (mainDie.faceContent) {
-        setFaces(mainDie.faceContent.map((c: string, i: number) => ({
-          content: c,
-          type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
-          color: mainDie.faceColors?.[i] || mainDie.color,
-          textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
-        })));
+        setFaces(mainDie.faceContent.map((c: string, i: number) => {
+          let content = c;
+          // Si el contenido es una referencia a imagen local, usamos la preview
+          if (c.startsWith("file://")) {
+            const imgName = c.substring(c.lastIndexOf("/") + 1);
+            if (previews[imgName]) content = previews[imgName];
+          }
+          return {
+            content: content,
+            originalContent: c,
+            type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
+            color: mainDie.faceColors?.[i] || mainDie.color,
+            textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
+          };
+        }));
       }
       
       setFile(selectedFile);
@@ -195,8 +218,63 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       let fileUrl = "";
       let shareCode = activeTab === "code" ? rawCode : null;
 
+      // Si es un archivo .dizes, subimos imágenes y el archivo
       if (activeTab === "file" && file) {
-        const fileName = `${Date.now()}_${file.name}`;
+        const timestamp = Date.now();
+        const uploadedImages: {[path: string]: string} = {};
+
+        // Subir cada imagen extraída a Supabase Storage
+        for (const [name, blob] of Object.entries(extractedImages)) {
+          const path = `assets/${timestamp}_${name}`;
+          const { error: imgError } = await supabase.storage.from("dice-files").upload(path, blob);
+          if (!imgError) {
+            const { data: urlData } = supabase.storage.from("dice-files").getPublicUrl(path);
+            uploadedImages[name] = urlData.publicUrl;
+          }
+        }
+
+        // Leer el JSON original del archivo para actualizar las URLs
+        const zip = new JSZip();
+        const zipContent = await zip.loadAsync(file);
+        const dataFile = zipContent.file("data.json") || zipContent.file("config.json");
+        if (dataFile) {
+          const jsonStr = await dataFile.async("string");
+          let diceData = JSON.parse(jsonStr);
+          const isArr = Array.isArray(diceData);
+          const items = isArr ? diceData : [diceData];
+
+          // Actualizar URLs de imágenes locales a URLs públicas de Supabase
+          items.forEach((d: any) => {
+            if (d.faceContent) {
+              d.faceContent = d.faceContent.map((c: string) => {
+                if (c.startsWith("file://")) {
+                  const name = c.substring(c.lastIndexOf("/") + 1);
+                  return uploadedImages[name] || c;
+                }
+                return c;
+              });
+            }
+            if (d.faceSecondaryContent) {
+              d.faceSecondaryContent = d.faceSecondaryContent.map((c: string) => {
+                if (c.startsWith("file://")) {
+                  const name = c.substring(c.lastIndexOf("/") + 1);
+                  return uploadedImages[name] || c;
+                }
+                return c;
+              });
+            }
+          });
+
+          // Generar nuevo share_code comprimido con las URLs públicas
+          const updatedJson = JSON.stringify(isArr ? items : items[0]);
+          const blob = new Blob([updatedJson]);
+          const stream = blob.stream().pipeThrough(new CompressionStream("gzip"));
+          const compressed = await new Response(stream).arrayBuffer();
+          // @ts-ignore
+          shareCode = btoa(String.fromCharCode(...new Uint8Array(compressed)));
+        }
+
+        const fileName = `packs/${timestamp}_${file.name}`;
         const { data: storageData, error: storageError } = await supabase.storage.from("dice-files").upload(fileName, file);
         if (storageError) throw storageError;
         const { data: urlData } = supabase.storage.from("dice-files").getPublicUrl(fileName);
@@ -212,7 +290,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         color: metadata.color,
         file_url: fileUrl,
         share_code: shareCode,
-        preview_face: faces[selectedFaceIdx]?.content || null
+        preview_face: faces[selectedFaceIdx]?.originalContent || faces[selectedFaceIdx]?.content || null
       }]);
 
       if (dbError) throw dbError;
@@ -272,6 +350,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                     {faces[selectedFaceIdx] ? (
                       faces[selectedFaceIdx].content.includes("<svg") ? (
                         <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: faces[selectedFaceIdx].content }} />
+                      ) : faces[selectedFaceIdx].content.startsWith("blob:") || faces[selectedFaceIdx].content.startsWith("http") || faces[selectedFaceIdx].content.startsWith("data:") ? (
+                        <img src={faces[selectedFaceIdx].content} alt="Face" className="w-full h-full object-cover" />
                       ) : (
                         <span style={{ color: faces[selectedFaceIdx].textColor || "#fff" }}>{faces[selectedFaceIdx].content}</span>
                       )
@@ -290,6 +370,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                         >
                           {face.content.includes("<svg") ? (
                             <div className="w-6 h-6 pointer-events-none" dangerouslySetInnerHTML={{ __html: face.content }} />
+                          ) : face.content.startsWith("blob:") || face.content.startsWith("http") || face.content.startsWith("data:") ? (
+                            <img src={face.content} alt="Face" className="w-full h-full object-cover" />
                           ) : (
                             <span style={{ color: face.textColor || "#fff" }}>{face.content}</span>
                           )}
