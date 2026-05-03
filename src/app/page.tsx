@@ -267,8 +267,6 @@ export default function Home() {
     }
   };
 
-  const gridColsClass = getGridCols();
-
   const filteredDice = (dice || []).filter((d: any) => {
     const searchLower = search.toLowerCase();
     const matchesName = d.name?.toLowerCase().includes(searchLower);
