@@ -112,7 +112,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
           tags: isPack ? "Pack" : (mainDie.type || "Die"),
           description: isPack ? "A collection of dice." : `A single ${mainDie.type || 'D6'} die.`,
           color: isPack ? "#3b82f6" : (mainDie.color || "#3b82f6"),
-          type: isPack ? "PACK" : (mainDie.type || "D6")
+          type: isPack ? "PACK" : (mainDie.type || "D6"),
+          isPublished: true
         });
 
         if (mainDie.faceContent) {
@@ -191,7 +192,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         tags: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.type || "Die"),
         description: "",
         color: mainDie.color || "#3b82f6",
-        type: isPack ? "PACK" : (mainDie.type || "D6")
+        type: isPack ? "PACK" : (mainDie.type || "D6"),
+        isPublished: true
       });
 
       if (mainDie.faceContent) {
