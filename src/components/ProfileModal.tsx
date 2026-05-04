@@ -32,6 +32,7 @@ const t = {
     success: "Perfil actualizado",
     error: "Error al actualizar",
     deletedContent: "Contenido Eliminado (Admin)",
+    logout: "Cerrar Sesión"
   },
   en: {
     title: "My Profile",
@@ -49,6 +50,7 @@ const t = {
     success: "Profile updated",
     error: "Update error",
     deletedContent: "Deleted Content (Admin)",
+    logout: "Logout"
   }
 };
 
@@ -204,7 +206,7 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                     {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : dict.save}
                   </button>
 
-                  {isAdmin && (
+                   {isAdmin && (
                     <button 
                       type="button"
                       onClick={() => { setIsTestUser(!isTestUser); onClose(); }} 
@@ -214,6 +216,17 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                       {isTestUser ? (lang === "es" ? "SALIR DE MODO TEST" : "EXIT TEST MODE") : (lang === "es" ? "SIMULAR USUARIO TEST" : "SIMULATE TEST USER")}
                     </button>
                   )}
+
+                  <div className="pt-4 border-t border-white/5 mt-8">
+                    <button 
+                      type="button"
+                      onClick={() => { supabase.auth.signOut(); onClose(); }}
+                      className="w-full bg-red-500/10 border border-red-500/20 py-4 rounded-2xl text-[10px] font-black text-red-500 uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      {dict.logout}
+                    </button>
+                  </div>
                 </form>
               ) : (
                 <div className="space-y-4">

@@ -70,7 +70,8 @@ export default function Home() {
   const [selectedPack, setSelectedPack] = useState<any | null>(null);
   const [isForcedMobile, setIsForcedMobile] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [columns, setColumns] = useState(6);
+  const [gridCols, setGridCols] = useState(6);
+  const [listCols, setListCols] = useState(1);
   const [search, setSearch] = useState("");
   const [isMounted, setIsMounted] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -152,7 +153,12 @@ export default function Home() {
     const checkMobile = () => {
       const isMob = window.innerWidth < 768;
       setIsActualMobile(isMob);
-      if (isMob) setColumns(3);
+      if (isMob) {
+        setGridCols(prev => Math.min(prev, 4));
+        setListCols(prev => Math.min(prev, 2));
+      } else {
+        setGridCols(prev => Math.max(prev, 4));
+      }
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -233,7 +239,8 @@ export default function Home() {
     return matchesName || matchesTags;
   });
 
-  const gridColsClass = viewMode === "list" ? "grid-cols-1" : `grid-cols-${columns}`;
+  const activeCols = viewMode === "grid" ? gridCols : listCols;
+  const gridColsStyle = { gridTemplateColumns: `repeat(${activeCols}, minmax(0, 1fr))` };
   const mainClass = `flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip ${mobileContainerClass}`;
 
   return (
@@ -337,7 +344,6 @@ export default function Home() {
                   userProfile?.username?.[0] || user.email?.[0] || "U"
                 )}
               </button>
-              <button onClick={() => supabase.auth.signOut()} className="p-1.5 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
             </div>
           ) : (
             <button 
@@ -436,13 +442,17 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-            {viewMode === "grid" && (
-              <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-                {(isActualMobile || isForcedMobile ? [2, 3, 4] : [2, 4, 6, 8, 10]).map(n => (
-                  <button key={n} onClick={() => setColumns(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg ${columns === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
-                ))}
-              </div>
-            )}
+            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
+              {(viewMode === "grid") ? (
+                (isActualMobile || isForcedMobile ? [1, 2, 3, 4] : [4, 5, 6, 7, 8]).map(n => (
+                  <button key={n} onClick={() => setGridCols(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg ${gridCols === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
+                ))
+              ) : (
+                (isActualMobile || isForcedMobile ? [1, 2] : [1, 2, 3, 4]).map(n => (
+                  <button key={n} onClick={() => setListCols(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg ${listCols === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
+                ))
+              )}
+            </div>
 
             <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
               <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutGrid className="w-4 h-4" /></button>
@@ -451,7 +461,7 @@ export default function Home() {
           </div>
         </section>
 
-        <div className={`grid gap-3 ${gridColsClass}`}>
+        <div className="grid gap-3" style={gridColsStyle}>
           {dice === null ? (
             Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square bg-zinc-900/20 rounded-2xl animate-pulse" />)
           ) : dice.length === 0 ? (
