@@ -135,6 +135,7 @@ export default function Home() {
         query = query.order("created_at", { ascending: false });
       }
 
+      const from = page * size;
       const { data, error, count } = await query.range(from, from + size - 1);
       if (error) throw error;
       
