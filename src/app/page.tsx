@@ -2,7 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2, Edit2 } from "lucide-react";
+import { 
+  Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, 
+  Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, 
+  Trash2, CheckCircle2, Edit2 
+} from "lucide-react";
 import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
 import AuthModal from "@/components/AuthModal";
@@ -61,7 +65,6 @@ const translations = {
 export default function Home() {
   const ADMIN_EMAIL = "zvirus@gmail.com";
   const [lang, setLang] = useState<Language>("es");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedPack, setSelectedPack] = useState<any | null>(null);
@@ -99,7 +102,7 @@ export default function Home() {
     return null;
   };
 
-  const fetchDice = async (sort: TabType = activeTab, page = currentPage, size = pageSize, fType = filterType, onlyDeleted = showDeleted) => {
+  const fetchDice = async (sort: TabType = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted, fType = filterType) => {
     try {
       let query = supabase.from("dice_packs").select("*", { count: "exact" });
       
@@ -166,6 +169,7 @@ export default function Home() {
       setUser(session?.user ?? null);
       if (session?.user) loadUserProfile(session.user.id);
       else setUserProfile(null);
+      
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
       else setIsAdmin(false);
     });
@@ -179,10 +183,49 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const deleteDice = async (id: string, ownerId?: string) => {
+    const isOwner = user && ownerId === user.id;
+    if (!isAdmin && !isOwner) return;
+    if (!confirm(lang === "es" ? "¿Seguro que quieres borrar este dado?" : "Are you sure you want to delete this die?")) return;
+    const { error } = await supabase.from("dice_packs").update({ deleted_at: new Date().toISOString() }).eq("id", id);
+    if (!error) fetchDice();
+    else alert(error.message);
+  };
+
+  const permanentDelete = async (ids: string[]) => {
+    if (!isAdmin) return;
+    if (!confirm(lang === "es" ? `¿Seguro que quieres borrar PERMANENTEMENTE ${ids.length} elementos?` : `Are you sure you want to PERMANENTLY delete ${ids.length} items?`)) return;
+    const { error } = await supabase.from("dice_packs").delete().in("id", ids);
+    if (!error) {
+      setSelectedDice([]);
+      fetchDice();
+    } else alert(error.message);
+  };
+
+  const restoreDice = async (ids: string[]) => {
+    if (!isAdmin) return;
+    const { error } = await supabase.from("dice_packs").update({ deleted_at: null }).in("id", ids);
+    if (!error) {
+      setSelectedDice([]);
+      fetchDice();
+    } else alert(error.message);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedDice(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const incrementDownload = async (id: string, currentDownloads: number, shareCode?: string) => {
+    if (shareCode) window.location.href = `dizes://community?code=${shareCode}`;
+    await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
+    fetchDice();
+  };
+
   if (!isMounted) return null;
 
   const t = translations[lang];
   const mobileContainerClass = isForcedMobile ? "max-w-[375px] mx-auto border-x border-white/10 shadow-2xl" : "w-full";
+  
   const filteredDice = (dice || []).filter((d: any) => {
     const searchLower = search.toLowerCase();
     const matchesName = d.name?.toLowerCase().includes(searchLower);
@@ -201,26 +244,49 @@ export default function Home() {
             <Dice6 className="text-white w-4 h-4" />
           </div>
           <span className={`font-black text-base tracking-tighter ${isForcedMobile ? "hidden" : "hidden lg:inline"}`}>Dizes <span className="text-blue-500">Community</span></span>
+          
           {isAdmin && (
-            <button onClick={() => setIsForcedMobile(!isForcedMobile)} className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}>
+            <button 
+              onClick={() => setIsForcedMobile(!isForcedMobile)}
+              className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}
+            >
               {isForcedMobile ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
             </button>
           )}
         </div>
 
         <div className="flex-1 flex justify-end">
-          <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors mr-2">
+          <button 
+            onClick={() => setIsSearchOpen(true)} 
+            className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors mr-2"
+          >
             <Search className="w-4 h-4" />
           </button>
         </div>
 
         <AnimatePresence>
           {isSearchOpen && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute inset-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl px-4 flex items-center border-b border-white/5">
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="absolute inset-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl px-4 flex items-center border-b border-white/5"
+            >
               <div className="relative w-full max-w-[1800px] mx-auto flex items-center">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-                <input type="text" autoFocus placeholder={t.searchPlaceholder} className="w-full bg-black/60 border border-zinc-800 rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:border-blue-500 text-sm font-medium transition-colors shadow-2xl" value={search} onChange={(e) => setSearch(e.target.value)} onBlur={() => { if (!search) setIsSearchOpen(false); }} />
-                <button onClick={() => { setIsSearchOpen(false); setSearch(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+                <input 
+                  type="text" 
+                  autoFocus
+                  placeholder={t.searchPlaceholder}
+                  className="w-full bg-black/60 border border-zinc-800 rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:border-blue-500 text-sm font-medium transition-colors shadow-2xl"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onBlur={() => { if (!search) setIsSearchOpen(false); }}
+                />
+                <button 
+                  onClick={() => { setIsSearchOpen(false); setSearch(""); }} 
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -232,29 +298,52 @@ export default function Home() {
           <button onClick={() => setLang(lang === "es" ? "en" : "es")} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
             <Languages className="w-4 h-4 text-zinc-500" />
           </button>
+
           {user?.email === ADMIN_EMAIL && (
             <div className="flex items-center gap-1">
-              <button onClick={() => { const s = !showDeleted; setShowDeleted(s); setCurrentPage(0); fetchDice(activeTab, 0, pageSize, filterType, s); }} className={`p-2 rounded-lg border transition-all ${showDeleted ? "bg-red-600 border-red-500 text-white shadow-lg" : "bg-white/5 border-white/10 text-zinc-500"}`}>
+              <button 
+                onClick={() => { const s = !showDeleted; setShowDeleted(s); setCurrentPage(0); fetchDice(activeTab, 0, pageSize, s); }} 
+                className={`p-2 rounded-lg border transition-all ${showDeleted ? "bg-red-600 border-red-500 text-white shadow-lg" : "bg-white/5 border-white/10 text-zinc-500"}`}
+                title={lang === "es" ? "Papelera" : "Recycle Bin"}
+              >
                 <Trash2 className="w-4 h-4" />
               </button>
-              <button onClick={() => setIsAdmin(!isAdmin)} className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}>
-                {isAdmin ? "ADMIN" : "USER"}
+              <button 
+                onClick={() => setIsAdmin(!isAdmin)} 
+                className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}
+              >
+                {isAdmin ? "ADMIN MODE" : "USER MODE"}
               </button>
             </div>
           )}
-          <button onClick={() => setIsUploadOpen(true)} className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 px-3 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 transition-all">
+          
+          <button 
+            onClick={() => setIsUploadOpen(true)}
+            className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 px-3 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 transition-all active:scale-95"
+          >
             <Upload className="w-3.5 h-3.5 text-blue-500" />
             <span className={isForcedMobile ? "hidden" : "hidden sm:inline"}>{t.uploadBtn}</span>
           </button>
+          
           {user ? (
             <div className="flex items-center gap-2">
-              <button onClick={() => setIsProfileOpen(true)} className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-500/20 transition-all uppercase overflow-hidden">
-                {userProfile?.avatar_url ? <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (userProfile?.username?.[0] || user.email?.[0] || "U")}
+              <button 
+                onClick={() => setIsProfileOpen(true)}
+                className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all uppercase overflow-hidden"
+              >
+                {userProfile?.avatar_url ? (
+                  <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  userProfile?.username?.[0] || user.email?.[0] || "U"
+                )}
               </button>
               <button onClick={() => supabase.auth.signOut()} className="p-1.5 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
             </div>
           ) : (
-            <button onClick={() => setIsAuthOpen(true)} className="brand-gradient px-4 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-blue-500/20 transition-all">
+            <button 
+              onClick={() => setIsAuthOpen(true)}
+              className="brand-gradient px-4 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
+            >
               {t.signIn}
             </button>
           )}
@@ -272,29 +361,70 @@ export default function Home() {
           </div>
         </section>
 
+        {isAdmin && showDeleted && (
+          <section className="mb-6 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{lang === "es" ? "MODO PAPELERA" : "RECYCLE BIN MODE"}</span>
+              <span className="text-zinc-500 text-[10px] font-bold">{selectedDice.length} {lang === "es" ? "seleccionados" : "selected"}</span>
+            </div>
+            <div className="flex gap-2">
+               {selectedDice.length > 0 && (
+                 <>
+                   <button onClick={() => restoreDice(selectedDice)} className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20">{lang === "es" ? "Restaurar" : "Restore"}</button>
+                   <button onClick={() => permanentDelete(selectedDice)} className="bg-red-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20">{lang === "es" ? "Borrar Selección" : "Delete Selected"}</button>
+                 </>
+               )}
+            </div>
+          </section>
+        )}
+
         <section className="mb-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/5 relative z-[50]">
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
-               {["trending", "latest", ...(isAdmin ? ["pending"] : [])].map((tabId) => (
-                 <button key={tabId} onClick={() => { setActiveTab(tabId as any); fetchDice(tabId as any); }} className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tabId ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}>
-                   {tabId === "trending" ? t.trending : tabId === "latest" ? t.latest : "PENDING"}
+               {[
+                 { id: "trending", label: t.trending },
+                 { id: "latest", label: t.latest },
+                 ...(isAdmin ? [{ id: "pending", label: lang === "es" ? "PENDIENTES" : "PENDING" }] : [])
+               ].map((tab) => (
+                 <button 
+                   key={tab.id} 
+                   onClick={() => { setActiveTab(tab.id as any); fetchDice(tab.id as any); }}
+                   className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}
+                 >
+                   {tab.label}
                  </button>
                ))}
             </div>
+
             <div className="relative">
-              <button onClick={() => setIsFiltersOpen(!isFiltersOpen)} className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${isFiltersOpen ? "bg-blue-600 border-blue-500 text-white" : "bg-white/5 border-white/5 text-zinc-500"}`}>
+              <button 
+                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${isFiltersOpen ? "bg-blue-600 border-blue-500 text-white" : "bg-white/5 border-white/5 text-zinc-500 hover:text-white"}`}
+              >
                 <Filter className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t.advFilters}</span>
               </button>
+
               <AnimatePresence>
                 {isFiltersOpen && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 z-50">
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 z-50"
+                  >
                     <div className="space-y-4">
                       <div>
                         <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Content Type</label>
                         <div className="flex flex-col gap-1">
                           {["all", "dice", "icons"].map(opt => (
-                            <button key={opt} onClick={() => { setFilterType(opt as any); fetchDice(activeTab, currentPage, pageSize, opt as any); setIsFiltersOpen(false); }} className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold ${filterType === opt ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5"}`}>{opt}</button>
+                            <button 
+                              key={opt}
+                              onClick={() => { setFilterType(opt as any); fetchDice(activeTab, currentPage, pageSize, showDeleted, opt as any); setIsFiltersOpen(false); }}
+                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold ${filterType === opt ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5"}`}
+                            >
+                              {opt}
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -313,6 +443,7 @@ export default function Home() {
                 ))}
               </div>
             )}
+
             <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
               <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutGrid className="w-4 h-4" /></button>
               <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg ${viewMode === "list" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutList className="w-4 h-4" /></button>
@@ -326,18 +457,98 @@ export default function Home() {
           ) : dice.length === 0 ? (
             <div className="col-span-full py-20 text-center text-zinc-500 uppercase font-black text-[10px]">No dice found</div>
           ) : (
-            filteredDice.map((die: any) => (
-              <motion.div key={die.id} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 cursor-pointer hover:border-white/10 transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"}`}>
-                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 border border-white/5 ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
-                   <div className="w-full h-full flex items-center justify-center font-black" style={{ backgroundColor: die.color || "#27272a" }}>{die.type}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                   <h4 className="font-black text-[10px] md:text-xs truncate uppercase text-white">{die.name}</h4>
-                   <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-tight">@{die.author}</p>
-                </div>
-              </motion.div>
-            ))
+            filteredDice.map((die: any) => {
+              const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
+              const isRealPack = die.type === 'PACK' && diceCount > 1;
+
+              return (
+                <motion.div 
+                  key={die.id} 
+                  whileHover={{ y: -2 }}
+                  onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
+                  className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 cursor-pointer hover:border-white/10 transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500" : ""}`}
+                >
+                  <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 border border-white/5 overflow-hidden ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
+                    <div 
+                      className={`w-full h-full flex items-center justify-center font-black relative`} 
+                      style={{ 
+                        backgroundColor: die.color || "#27272a",
+                        color: (die.tags?.find((tg: string) => tg.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" ? "#000000" : "#ffffff")
+                      }}
+                    >
+                      {die.preview_face ? (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          {die.preview_face.split("_DZS_SEP_").map((part: string, pIdx: number) => (
+                            <div key={pIdx} className="absolute inset-0 flex items-center justify-center pointer-events-none p-1">
+                              {part.includes("<svg") ? (
+                                <div 
+                                  className="w-full h-full"
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: part.replace(/fill="[^"]*"/g, 'fill="currentColor"').replace(/stroke="[^"]*"/g, 'stroke="currentColor"') 
+                                  }}
+                                />
+                              ) : (part.startsWith("http") || part.startsWith("blob:") || part.startsWith("data:")) ? (
+                                <img src={part} alt="Preview" className="w-full h-full object-contain" />
+                              ) : (
+                                <span className={viewMode === "list" ? "text-[8px]" : "text-xl"}>{part}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <h4 className="font-black text-[10px] md:text-xs truncate uppercase text-white leading-none">{die.name}</h4>
+                    <p className="text-[8px] text-zinc-500 font-bold uppercase leading-none">@{die.author} • {die.type}</p>
+                    
+                    {!showDeleted && (
+                      <div className="flex gap-1 items-stretch mt-1">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); incrementDownload(die.id, die.downloads, die.share_code); setSelectedPack(die); }} 
+                          className="flex-1 brand-gradient h-7 rounded-lg flex items-center justify-center"
+                        >
+                          <Download className="w-3 h-3 text-white" />
+                        </button>
+                        <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 h-7 rounded-lg border border-blue-500/20">
+                          <span className="text-[9px] font-black text-blue-400">{die.downloads || 0}</span>
+                        </div>
+                        {(isAdmin || (user && die.user_id === user.id)) && (
+                          <>
+                            <button onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} className="p-1.5 bg-white/5 rounded-lg border border-white/5 text-zinc-500 hover:text-white transition-all"><Edit2 className="w-3 h-3" /></button>
+                            <button onClick={(e) => { e.stopPropagation(); deleteDice(die.id, die.user_id); }} className="p-1.5 bg-red-500/10 rounded-lg border border-red-500/20 text-red-500 hover:text-white transition-all"><Trash2 className="w-3 h-3" /></button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })
           )}
+        </div>
+
+        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-white/5 pt-8">
+          <div className="flex items-center gap-2">
+            <button 
+              disabled={currentPage === 0}
+              onClick={() => { const p = currentPage - 1; setCurrentPage(p); fetchDice(activeTab, p); }}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase disabled:opacity-30"
+            >
+              {lang === "es" ? "Anterior" : "Prev"}
+            </button>
+            <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-2 rounded-xl border border-blue-500/20">{currentPage + 1}</span>
+            <button 
+              disabled={(dice?.length || 0) < pageSize}
+              onClick={() => { const p = currentPage + 1; setCurrentPage(p); fetchDice(activeTab, p); }}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase disabled:opacity-30"
+            >
+              {lang === "es" ? "Siguiente" : "Next"}
+            </button>
+          </div>
         </div>
       </main>
 
@@ -349,3 +560,5 @@ export default function Home() {
     </div>
   );
 }
+
+// Build Trigger: 2026-05-04 10:16 - Production Stabilization
