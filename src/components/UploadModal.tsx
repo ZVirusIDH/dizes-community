@@ -594,3 +594,5 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
     </AnimatePresence>
   );
 }
+
+// Build Trigger: 2026-05-03 23:25

@@ -1,31 +1,24 @@
-# Dizes Project Agents & Protocol
+# Dizes Community Agent Status
 
-## 🚀 Repositories
-- **Web Portal (Community):** [https://github.com/ZVirusIDH/dizes-community](https://github.com/ZVirusIDH/dizes-community) (Public)
-- **Android App (Core):** [https://github.com/ZVirusIDH/Dizes-Android](https://github.com/ZVirusIDH/Dizes-Android) (Private)
+## 🚀 Deployment Status
+*   **Production Domain**: `dizes.zetavirus.com` (Live & Propagated).
+*   **Deep Linking**: Configured in Android and Web for one-click import.
+*   **Import 2.0**: Unified, batch support, and 512px WebP optimization.
+*   **Status**: v1.15.2 Release Completed.
 
-## 🌐 Deployment Protocol (Web)
-1. **GitHub Sync:** Every push to the `main` branch of `dizes-community` triggers an automatic deployment to Vercel.
-2. **Production URL:** [https://dizes-community.vercel.app](https://dizes-community.vercel.app)
-3. **Environment Variables:** Must be kept in sync between Vercel and Supabase.
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. **Supabase Config:** 
-   - Ensure "Site URL" in Auth settings is always `https://dizes-community.vercel.app`.
-
-5. **Custom Domain Migration (Live):**
-   - Domain: `dizes.zetavirus.com`
-   - CNAME: `dizes` -> `84e85453863e2b7e.vercel-dns-017.com.`
-   - Status: **Live & Propagated**. Main production URL.
+## 🛠️ Technical Details
+1.  **Vercel Project**: `dizes-community`
+2.  **Supabase Backend**: Metadata-aware dice ingestion.
+3.  **Deep Link Pattern**: `dizes://community?code={SHARE_CODE}`
+4.  **Supabase Config**: 
+    - Ensure "Site URL" in Auth settings is `https://dizes.zetavirus.com`.
 
 ## 📱 Android Build Protocol
-1. **Docker Environment:** All production builds (v1.13+) must be generated using the Docker-based build environment.
-2. **Push to Private:** Always push updates to `ZVirusIDH/Dizes-Android`.
-3. **Artifacts:** Store generated APKs in the root of the project for distribution.
+1.  **Docker Environment**: All production builds must use the Docker-based environment.
+2.  **Versioning**: v1.15.2
+3.  **Assets**: `app/build/outputs/apk/release/` and `app/build/outputs/bundle/release/`.
 
-## 🛠️ Session Restoration Protocol
-In case of session loss, the agent should:
-1. Verify Supabase connection using `.env.local`.
-2. Check Vercel deployment status at `zvirusidhs-projects/dizes-community`.
-3. Resume from the last commit on GitHub.
-4. Master Admin: `zvirus@gmail.com`.
+## 📂 Key Files
+*   `src/app/community/page.tsx`: Main explorer.
+*   `src/components/ShareModal.tsx`: Direct code extraction.
+*   `app/src/main/java/com/dizes/MainActivity.kt`: Deep link handler.
