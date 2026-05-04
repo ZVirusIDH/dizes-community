@@ -229,50 +229,75 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                   </div>
                 </form>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-8">
                   {loading ? (
                     <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
                   ) : uploads.length === 0 ? (
                     <p className="text-center text-zinc-500 font-bold py-10">{dict.noUploads}</p>
                   ) : (
-                    uploads.map(item => (
-                      <div key={item.id} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center justify-between group">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white" style={{ backgroundColor: item.color }}>
-                            {item.type === 'PACK' ? 'P' : item.type.replace("D", "")}
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-sm">{item.name}</h4>
-                            <div className="flex items-center gap-3 text-[8px] font-black uppercase mt-1">
-                              <span className={`flex items-center gap-1 ${item.status === 'approved' ? 'text-green-500' : item.status === 'pending' ? 'text-yellow-500' : 'text-red-500'}`}>
-                                <Clock className="w-2.5 h-2.5" /> {item.status === 'approved' ? (lang === 'es' ? 'Aprobado' : 'Approved') : item.status === 'pending' ? (lang === 'es' ? 'Pendiente' : 'Pending') : (lang === 'es' ? 'Rechazado' : 'Rejected')}
-                              </span>
-                              <span className={`flex items-center gap-1 ${item.is_published ? 'text-blue-500' : 'text-zinc-500'}`}>
-                                {item.is_published ? (lang === 'es' ? 'Público' : 'Public') : (lang === 'es' ? 'Privado' : 'Private')}
-                              </span>
+                    <>
+                      {[
+                        { id: 'approved', label: lang === 'es' ? 'Aprobados' : 'Approved', color: 'text-green-500', icon: <CheckCircle2 className="w-3 h-3" /> },
+                        { id: 'pending', label: lang === 'es' ? 'Pendientes de Revisión' : 'Pending Review', color: 'text-yellow-500', icon: <Clock className="w-3 h-3" /> },
+                        { id: 'rejected', label: lang === 'es' ? 'No Aprobados' : 'Not Approved', color: 'text-red-500', icon: <AlertCircle className="w-3 h-3" /> }
+                      ].map(section => {
+                        const items = uploads.filter(u => u.status === section.id);
+                        if (items.length === 0 && activeTab === "uploads") return null;
+                        if (activeTab === "deleted" && section.id !== "approved") return null; // En la papelera admin no agrupamos por status de la misma forma
+
+                        return (
+                          <div key={section.id} className="space-y-3">
+                            <div className={`flex items-center gap-2 px-2`}>
+                              <span className={`${section.color} bg-current/10 p-1 rounded-md`}>{section.icon}</span>
+                              <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] ${section.color}`}>{section.label}</h3>
+                              <div className="flex-1 h-[1px] bg-white/5 ml-2" />
+                              <span className="text-[10px] font-black text-zinc-600">{items.length}</span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {items.map(item => (
+                                <div key={item.id} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-colors">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white shadow-lg" style={{ backgroundColor: item.color }}>
+                                      {item.type === 'PACK' ? 'P' : item.type.replace("D", "")}
+                                    </div>
+                                    <div>
+                                      <h4 className="font-bold text-sm">{item.name}</h4>
+                                      <div className="flex items-center gap-3 text-[8px] font-black uppercase mt-1">
+                                        <span className={`flex items-center gap-1 ${item.is_published ? 'text-blue-500' : 'text-zinc-500'}`}>
+                                          {item.is_published ? (lang === 'es' ? 'Público' : 'Public') : (lang === 'es' ? 'Privado' : 'Private')}
+                                        </span>
+                                        <span className="text-zinc-600">•</span>
+                                        <span className="text-zinc-600">{new Date(item.created_at).toLocaleDateString()}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     {activeTab === "uploads" && (
+                                       <button 
+                                         onClick={async () => {
+                                           const { error } = await supabase.from("dice_packs").update({ is_published: !item.is_published }).eq("id", item.id);
+                                           if (!error) loadUploads();
+                                         }}
+                                         className={`p-2 rounded-xl transition-all border ${item.is_published ? "bg-blue-500/10 border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white" : "bg-zinc-800 border-white/5 text-zinc-500 hover:bg-white/10"}`}
+                                         title={lang === 'es' ? 'Cambiar Visibilidad' : 'Toggle Visibility'}
+                                       >
+                                         {item.is_published ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                                       </button>
+                                     )}
+                                     {activeTab === "uploads" ? (
+                                       <button onClick={() => softDelete(item.id)} className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl border border-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button>
+                                     ) : (
+                                       <button onClick={() => hardDelete(item.id)} className="p-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-black text-[8px]">FINAL DELETE</button>
+                                     )}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                           {activeTab === "uploads" && (
-                             <button 
-                               onClick={async () => {
-                                 const { error } = await supabase.from("dice_packs").update({ is_published: !item.is_published }).eq("id", item.id);
-                                 if (!error) loadUploads();
-                               }}
-                               className={`p-2 rounded-xl transition-all border ${item.is_published ? "bg-blue-500/10 border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white" : "bg-zinc-800 border-white/5 text-zinc-500 hover:bg-white/10"}`}
-                             >
-                               {item.is_published ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                             </button>
-                           )}
-                           {activeTab === "uploads" ? (
-                             <button onClick={() => softDelete(item.id)} className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl border border-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button>
-                           ) : (
-                             <button onClick={() => hardDelete(item.id)} className="p-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-black text-[8px]">FINAL DELETE</button>
-                           )}
-                        </div>
-                      </div>
-                    ))
+                        );
+                      })}
+                    </>
                   )}
                 </div>
               )}
