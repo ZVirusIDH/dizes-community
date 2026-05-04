@@ -1,17 +1,15 @@
 "use client";
-import React from 'react';
 
-
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Upload, Download, Filter, Dice6, ChevronRight, Languages, Menu, X, LayoutGrid, LayoutList, Smartphone, Monitor, Package, Trash2, CheckCircle2, Edit2 } from "lucide-react";
-import { useState, useEffect } from "react";
 import UploadModal from "@/components/UploadModal";
 import DiceViewerModal from "@/components/DiceViewerModal";
 import AuthModal from "@/components/AuthModal";
 import ProfileModal from "@/components/ProfileModal";
 import DiceEditModal from "@/components/DiceEditModal";
 import { supabase } from "@/lib/supabase";
-import { User as SupabaseUser } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
 
 type Language = "es" | "en";
 type ViewMode = "grid" | "list";
@@ -61,7 +59,7 @@ const translations = {
 };
 
 export default function Home() {
-  const ADMIN_EMAIL = "zvirus@gmail.com"; // Email maestro del administrador
+  const ADMIN_EMAIL = "zvirus@gmail.com";
   const [lang, setLang] = useState<Language>("es");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -75,11 +73,11 @@ export default function Home() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [dice, setDice] = useState<any[] | null>(null);
   const [isTestUser, setIsTestUser] = useState(false);
-   const [activeTab, setActiveTab] = useState<TabType>("trending");
+  const [activeTab, setActiveTab] = useState<TabType>("trending");
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(0);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -87,6 +85,7 @@ export default function Home() {
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "dice" | "icons">("all");
+  const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
   const loadUserProfile = async (userId: string) => {
     try {
@@ -98,6 +97,48 @@ export default function Home() {
       }
     } catch (e) { console.error("Error loading profile:", e); }
     return null;
+  };
+
+  const fetchDice = async (sort: TabType = activeTab, page = currentPage, size = pageSize, fType = filterType, onlyDeleted = showDeleted) => {
+    try {
+      let query = supabase.from("dice_packs").select("*", { count: "exact" });
+      
+      if (onlyDeleted) {
+        query = query.not("deleted_at", "is", null);
+      } else {
+        query = query.is("deleted_at", null);
+        
+        if (sort === "pending") {
+          query = query.eq("status", "pending");
+        } else {
+          if (!isAdmin) {
+            query = query.eq("is_published", true).eq("status", "approved");
+          } else {
+            query = query.eq("status", "approved");
+          }
+
+          if (fType === "dice") {
+            query = query.neq("type", "D2");
+          } else if (fType === "icons") {
+            query = query.eq("type", "D2");
+          }
+        }
+      }
+      
+      if (sort === "trending" || sort === "downloads") {
+        query = query.order("downloads", { ascending: false });
+      } else {
+        query = query.order("created_at", { ascending: false });
+      }
+
+      const from = page * size;
+      const { data, error } = await query.range(from, from + size - 1);
+      if (error) throw error;
+      setDice(data || []);
+    } catch (err) {
+      console.error("Error fetching dice:", err);
+      setDice([]); 
+    }
   };
 
   useEffect(() => {
@@ -115,7 +156,6 @@ export default function Home() {
 
     fetchDice(activeTab);
 
-    // Session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) loadUserProfile(session.user.id);
@@ -126,157 +166,32 @@ export default function Home() {
       setUser(session?.user ?? null);
       if (session?.user) loadUserProfile(session.user.id);
       else setUserProfile(null);
-      
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
       else setIsAdmin(false);
     });
 
-    // Action check (Deep Link from App for Upload)
     const urlParams = new URLSearchParams(window.location.search);
-    const action = urlParams.get("action");
-    const code = urlParams.get("code");
-    if (action === "upload" && code) {
+    if (urlParams.get("action") === "upload" && urlParams.get("code")) {
       setIsUploadOpen(true);
-      // Wait for modal to mount or use a state to pass the code
-      sessionStorage.setItem("upload_code", code);
+      sessionStorage.setItem("upload_code", urlParams.get("code")!);
     }
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const activeUser = isTestUser ? { id: 'test-user-id', email: 'test@user.com', user_metadata: { username: 'Tester' } } : user;
-  const activeIsAdmin = isTestUser ? false : isAdmin;
-
-  const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
-
-  const fetchDice = async (sort: TabType = activeTab, page = currentPage, size = pageSize, onlyDeleted = showDeleted) => {
-    try {
-      let query = supabase.from("dice_packs").select("*", { count: "exact" });
-      
-      if (onlyDeleted) {
-        query = query.not("deleted_at", "is", null);
-      } else {
-        query = query.is("deleted_at", null);
-        
-        if (sort === "pending") {
-          query = query.eq("status", "pending");
-        } else {
-          // Regular users only see published & approved
-          if (!isAdmin) {
-            query = query.eq("is_published", true).eq("status", "approved");
-          } else {
-            // Admins see all approved ones in trending/latest
-            query = query.eq("status", "approved");
-          }
-
-          if (filterType === "dice") {
-            query = query.neq("type", "D2");
-          } else if (filterType === "icons") {
-            query = query.eq("type", "D2");
-          }
-        }
-      }
-      
-      if (sort === "trending") {
-        query = query.order("downloads", { ascending: false });
-      } else if (sort === "downloads") {
-        query = query.order("downloads", { ascending: false });
-      } else {
-        query = query.order("created_at", { ascending: false });
-      }
-
-      const from = page * size;
-      const to = from + size - 1;
-
-      const { data, error } = await query.range(from, to);
-      if (error) throw error;
-      setDice(data || []);
-    } catch (err) {
-      console.error("Error fetching dice:", err);
-      setDice([]); 
-    }
-  };
-
-  const incrementDownload = async (id: string, currentDownloads: number, shareCode?: string) => {
-    if (shareCode) {
-      window.location.href = `dizes://community?code=${shareCode}`;
-    }
-    await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
-    fetchDice();
-  };
-
-  const permanentDelete = async (ids: string[]) => {
-    if (!isAdmin) return;
-    if (!confirm(lang === "es" ? `¿Seguro que quieres borrar PERMANENTEMENTE ${ids.length} elementos?` : `Are you sure you want to PERMANENTLY delete ${ids.length} items?`)) return;
-    const { error } = await supabase.from("dice_packs").delete().in("id", ids);
-    if (!error) {
-      setSelectedDice([]);
-      fetchDice();
-    } else alert(error.message);
-  };
-
-  const restoreDice = async (ids: string[]) => {
-    if (!isAdmin) return;
-    const { error } = await supabase.from("dice_packs").update({ deleted_at: null }).in("id", ids);
-    if (!error) {
-      setSelectedDice([]);
-      fetchDice();
-    } else alert(error.message);
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedDice(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  };
-
-  const deleteDice = async (id: string, ownerId?: string) => {
-    const isOwner = user && ownerId === user.id;
-    if (!isAdmin && !isOwner) return;
-    if (!confirm(lang === "es" ? "¿Seguro que quieres borrar este dado?" : "Are you sure you want to delete this die?")) return;
-    const { error } = await supabase.from("dice_packs").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-    if (!error) fetchDice();
-    else alert(error.message);
-  };
-
-  const renameDice = async (id: string, oldName: string) => {
-    if (!isAdmin) return;
-    const newName = prompt(lang === "es" ? "Nuevo nombre:" : "New name:", oldName);
-    if (newName && newName !== oldName) {
-      const { error } = await supabase.from("dice_packs").update({ name: newName }).eq("id", id);
-      if (!error) fetchDice();
-      else alert(error.message);
-    }
-  };
-
   if (!isMounted) return null;
 
   const t = translations[lang];
-
-  // Clases dinámicas para forzar el modo móvil
   const mobileContainerClass = isForcedMobile ? "max-w-[375px] mx-auto border-x border-white/10 shadow-2xl" : "w-full";
-  const mobileTextClass = isForcedMobile ? "text-center" : "text-center";
-  const getGridCols = () => {
-    if (viewMode === "list") return "grid-cols-1";
-    switch (columns) {
-      case 2: return "grid-cols-2";
-      case 3: return "grid-cols-3";
-      case 4: return "grid-cols-4";
-      case 6: return "grid-cols-6";
-      case 8: return "grid-cols-8";
-      case 10: return "grid-cols-10";
-      default: return "grid-cols-6";
-    }
-  };
-
   const filteredDice = (dice || []).filter((d: any) => {
     const searchLower = search.toLowerCase();
     const matchesName = d.name?.toLowerCase().includes(searchLower);
-    const matchesTags = d.tags?.filter((t: string) => !t.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(searchLower));
+    const matchesTags = d.tags?.filter((tg: string) => !tg.startsWith("_pfc:")).some((tag: string) => tag.toLowerCase().includes(searchLower));
     return matchesName || matchesTags;
   });
 
-  const gridColsClass = viewMode === "list" ? "grid-cols-1" : "grid-cols-" + (columns || 6);
-
-  const mainClass = "flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip " + mobileContainerClass;
+  const gridColsClass = viewMode === "list" ? "grid-cols-1" : `grid-cols-${columns}`;
+  const mainClass = `flex flex-col min-h-screen bg-[#060607] text-white transition-all duration-500 overflow-clip ${mobileContainerClass}`;
 
   return (
     <div className={mainClass}>
@@ -286,53 +201,26 @@ export default function Home() {
             <Dice6 className="text-white w-4 h-4" />
           </div>
           <span className={`font-black text-base tracking-tighter ${isForcedMobile ? "hidden" : "hidden lg:inline"}`}>Dizes <span className="text-blue-500">Community</span></span>
-          
           {isAdmin && (
-            <button 
-              onClick={() => setIsForcedMobile(!isForcedMobile)}
-              className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}
-            >
+            <button onClick={() => setIsForcedMobile(!isForcedMobile)} className={`p-2 rounded-lg border transition-all ${isForcedMobile ? "bg-blue-600 border-blue-500 text-white shadow-lg" : "bg-blue-500/10 border-blue-500/30 text-blue-400"}`}>
               {isForcedMobile ? <Monitor className="w-4 h-4" /> : <Smartphone className="w-4 h-4" />}
             </button>
           )}
         </div>
 
-        {/* Barra de Búsqueda Integrada */}
         <div className="flex-1 flex justify-end">
-          <button 
-            onClick={() => setIsSearchOpen(true)} 
-            className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors mr-2"
-          >
+          <button onClick={() => setIsSearchOpen(true)} className="p-2 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors mr-2">
             <Search className="w-4 h-4" />
           </button>
         </div>
 
         <AnimatePresence>
           {isSearchOpen && (
-            <motion.div 
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="absolute inset-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl px-4 flex items-center border-b border-white/5"
-            >
+            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="absolute inset-0 z-50 bg-[#0a0a0c]/95 backdrop-blur-xl px-4 flex items-center border-b border-white/5">
               <div className="relative w-full max-w-[1800px] mx-auto flex items-center">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
-                <input 
-                  type="text" 
-                  autoFocus
-                  placeholder={t.searchPlaceholder}
-                  className="w-full bg-black/60 border border-zinc-800 rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:border-blue-500 text-sm font-medium transition-colors shadow-2xl"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  onBlur={() => {
-                    // Close automatically if they click outside and didn't type anything
-                    if (!search) setIsSearchOpen(false);
-                  }}
-                />
-                <button 
-                  onClick={() => { setIsSearchOpen(false); setSearch(""); }} 
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors"
-                >
+                <input type="text" autoFocus placeholder={t.searchPlaceholder} className="w-full bg-black/60 border border-zinc-800 rounded-xl py-3 pl-11 pr-12 focus:outline-none focus:border-blue-500 text-sm font-medium transition-colors shadow-2xl" value={search} onChange={(e) => setSearch(e.target.value)} onBlur={() => { if (!search) setIsSearchOpen(false); }} />
+                <button onClick={() => { setIsSearchOpen(false); setSearch(""); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -344,60 +232,35 @@ export default function Home() {
           <button onClick={() => setLang(lang === "es" ? "en" : "es")} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
             <Languages className="w-4 h-4 text-zinc-500" />
           </button>
-
           {user?.email === ADMIN_EMAIL && (
             <div className="flex items-center gap-1">
-              <button 
-                onClick={() => { const s = !showDeleted; setShowDeleted(s); setCurrentPage(0); fetchDice(activeTab, 0, pageSize, s); }} 
-                className={`p-2 rounded-lg border transition-all ${showDeleted ? "bg-red-600 border-red-500 text-white shadow-lg" : "bg-white/5 border-white/10 text-zinc-500"}`}
-                title={lang === "es" ? "Papelera" : "Recycle Bin"}
-              >
+              <button onClick={() => { const s = !showDeleted; setShowDeleted(s); setCurrentPage(0); fetchDice(activeTab, 0, pageSize, filterType, s); }} className={`p-2 rounded-lg border transition-all ${showDeleted ? "bg-red-600 border-red-500 text-white shadow-lg" : "bg-white/5 border-white/10 text-zinc-500"}`}>
                 <Trash2 className="w-4 h-4" />
               </button>
-              <button 
-                onClick={() => setIsAdmin(!isAdmin)} 
-                className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}
-              >
-                {isAdmin ? "ADMIN MODE" : "USER MODE"}
+              <button onClick={() => setIsAdmin(!isAdmin)} className={`px-2 py-1 rounded text-[8px] font-black transition-all ${isAdmin ? "bg-red-500 text-white" : "bg-white/5 text-zinc-500"}`}>
+                {isAdmin ? "ADMIN" : "USER"}
               </button>
             </div>
           )}
-          
-          <button 
-            onClick={() => setIsUploadOpen(true)}
-            className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 px-3 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 transition-all active:scale-95"
-          >
+          <button onClick={() => setIsUploadOpen(true)} className="flex items-center gap-2 bg-blue-600/10 hover:bg-blue-600/20 px-3 py-1.5 rounded-xl text-[10px] font-black border border-blue-500/20 transition-all">
             <Upload className="w-3.5 h-3.5 text-blue-500" />
             <span className={isForcedMobile ? "hidden" : "hidden sm:inline"}>{t.uploadBtn}</span>
           </button>
-          
           {user ? (
             <div className="flex items-center gap-2">
-              <button 
-                onClick={() => setIsProfileOpen(true)}
-                className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all uppercase overflow-hidden"
-              >
-                {userProfile?.avatar_url ? (
-                  <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  userProfile?.username?.[0] || user.user_metadata?.username?.[0] || user.email?.[0] || "U"
-                )}
+              <button onClick={() => setIsProfileOpen(true)} className="w-8 h-8 rounded-full brand-gradient flex items-center justify-center text-[10px] font-black shadow-lg shadow-blue-500/20 transition-all uppercase overflow-hidden">
+                {userProfile?.avatar_url ? <img src={userProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : (userProfile?.username?.[0] || user.email?.[0] || "U")}
               </button>
               <button onClick={() => supabase.auth.signOut()} className="p-1.5 hover:bg-white/5 rounded-lg text-zinc-500 transition-colors"><X className="w-3.5 h-3.5" /></button>
             </div>
           ) : (
-            <button 
-              onClick={() => setIsAuthOpen(true)}
-              className="brand-gradient px-4 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-            >
+            <button onClick={() => setIsAuthOpen(true)} className="brand-gradient px-4 py-1.5 rounded-xl text-[10px] font-black shadow-lg shadow-blue-500/20 transition-all">
               {t.signIn}
             </button>
           )}
         </div>
       </nav>
-      
 
-      {/* Main Content */}
       <main className="flex-1 px-4 py-8 w-full max-w-[1800px] mx-auto">
         <section className="mb-12 flex flex-col items-center text-center gap-6">
           <div className="max-w-2xl mx-auto px-4">
@@ -409,97 +272,31 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Admin Toolbar */}
-        {isAdmin && showDeleted && (
-          <section className="mb-6 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{lang === "es" ? "MODO PAPELERA" : "RECYCLE BIN MODE"}</span>
-              <span className="text-zinc-500 text-[10px] font-bold">{selectedDice.length} {lang === "es" ? "seleccionados" : "selected"}</span>
-            </div>
-            <div className="flex gap-2">
-               {selectedDice.length > 0 && (
-                 <>
-                   <button onClick={() => restoreDice(selectedDice)} className="bg-blue-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-500/20">{lang === "es" ? "Restaurar" : "Restore"}</button>
-                   <button onClick={() => permanentDelete(selectedDice)} className="bg-red-600 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20">{lang === "es" ? "Borrar Selección" : "Delete Selected"}</button>
-                 </>
-               )}
-               <button onClick={() => permanentDelete(dice?.map(d => d.id) || [])} className="bg-zinc-800 text-white px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/5 hover:bg-red-600 transition-all">{lang === "es" ? "Vaciar Todo" : "Clear All"}</button>
-            </div>
-          </section>
-        )}
-
-        {/* Toolbar */}
         <section className="mb-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 border-b border-white/5 relative z-[50]">
           <div className="flex items-center gap-3 w-full md:w-auto">
-            {/* Main Tabs */}
             <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
-               {[
-                 { id: "trending", label: t.trending },
-                 { id: "latest", label: t.latest },
-                 ...(isAdmin ? [{ id: "pending", label: lang === "es" ? "PENDIENTES" : "PENDING" }] : [])
-               ].map((tab) => (
-                 <button 
-                   key={tab.id} 
-                   onClick={() => { setActiveTab(tab.id as any); fetchDice(tab.id as any); }}
-                   className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tab.id ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20" : "text-zinc-500 hover:text-white"}`}
-                 >
-                   {tab.label}
+               {["trending", "latest", ...(isAdmin ? ["pending"] : [])].map((tabId) => (
+                 <button key={tabId} onClick={() => { setActiveTab(tabId as any); fetchDice(tabId as any); }} className={`px-4 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all ${activeTab === tabId ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}>
+                   {tabId === "trending" ? t.trending : tabId === "latest" ? t.latest : "PENDING"}
                  </button>
                ))}
             </div>
-
-            {/* Advanced Filters Toggle */}
             <div className="relative">
-              <button 
-                onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-                className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 group ${isFiltersOpen ? "bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20" : "bg-white/5 border-white/5 text-zinc-500 hover:text-white hover:border-white/10"}`}
-              >
+              <button onClick={() => setIsFiltersOpen(!isFiltersOpen)} className={`p-2.5 rounded-xl border transition-all flex items-center gap-2 ${isFiltersOpen ? "bg-blue-600 border-blue-500 text-white" : "bg-white/5 border-white/5 text-zinc-500"}`}>
                 <Filter className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">{t.advFilters}</span>
               </button>
-
               <AnimatePresence>
                 {isFiltersOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                    className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 overflow-hidden"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 mt-2 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl p-4 z-50">
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{lang === "es" ? "Tipo de Contenido" : "Content Type"}</label>
+                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Content Type</label>
                         <div className="flex flex-col gap-1">
-                          {[
-                            { id: "all", label: lang === "es" ? "Todo" : "All" },
-                            { id: "dice", label: lang === "es" ? "Dados" : "Dice" },
-                            { id: "icons", label: lang === "es" ? "Iconos / D2" : "Icons / D2" }
-                          ].map(opt => (
-                            <button 
-                              key={opt.id}
-                              onClick={() => { setFilterType(opt.id as any); fetchDice(activeTab, currentPage, pageSize, opt.id as any); setIsFiltersOpen(false); }}
-                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${filterType === opt.id ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
-                            >
-                              {opt.label}
-                            </button>
+                          {["all", "dice", "icons"].map(opt => (
+                            <button key={opt} onClick={() => { setFilterType(opt as any); fetchDice(activeTab, currentPage, pageSize, opt as any); setIsFiltersOpen(false); }} className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold ${filterType === opt ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5"}`}>{opt}</button>
                           ))}
                         </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-white/5">
-                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{lang === "es" ? "Ordenar por" : "Sort by"}</label>
-                        <button 
-                          onClick={() => { setActiveTab("trending"); fetchDice("trending"); setIsFiltersOpen(false); }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === "trending" ? "bg-blue-500/20 text-blue-400" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
-                        >
-                          {lang === "es" ? "Más Descargas" : "Most Downloads"}
-                        </button>
-                        <button 
-                          onClick={() => { setActiveTab("latest"); fetchDice("latest"); setIsFiltersOpen(false); }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-all ${activeTab === "latest" ? "bg-blue-500/20 text-blue-400" : "text-zinc-400 hover:bg-white/5 hover:text-white"}`}
-                        >
-                          {lang === "es" ? "Más Recientes" : "Most Recent"}
-                        </button>
                       </div>
                     </div>
                   </motion.div>
@@ -510,226 +307,45 @@ export default function Home() {
 
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
             {viewMode === "grid" && (
-              <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
+              <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
                 {(isActualMobile || isForcedMobile ? [2, 3, 4] : [2, 4, 6, 8, 10]).map(n => (
-                  <button key={n} onClick={() => setColumns(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg transition-all ${columns === n ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}>{n}</button>
+                  <button key={n} onClick={() => setColumns(n)} className={`w-8 h-8 flex items-center justify-center text-[9px] font-black rounded-lg ${columns === n ? "bg-blue-600 text-white" : "text-zinc-500"}`}>{n}</button>
                 ))}
               </div>
             )}
-
-            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5 shadow-inner">
-              <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}><LayoutGrid className="w-4 h-4" /></button>
-              <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg transition-all ${viewMode === "list" ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}><LayoutList className="w-4 h-4" /></button>
+            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
+              <button onClick={() => setViewMode("grid")} className={`p-2 rounded-lg ${viewMode === "grid" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutGrid className="w-4 h-4" /></button>
+              <button onClick={() => setViewMode("list")} className={`p-2 rounded-lg ${viewMode === "list" ? "bg-blue-600 text-white" : "text-zinc-500"}`}><LayoutList className="w-4 h-4" /></button>
             </div>
           </div>
         </section>
 
-        {/* Grid */}
-        <div className={`grid gap-3 ${gridColsClass} ${viewMode === "list" ? "grid-cols-1" : ""}`}>
+        <div className={`grid gap-3 ${gridColsClass}`}>
           {dice === null ? (
-            Array.from({ length: columns * 2 }).map((_, i) => (
-              <div key={i} className="bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 animate-pulse">
-                <div className="h-3 w-2/3 bg-white/5 rounded-full mb-3" />
-                <div className="aspect-square w-full bg-white/5 rounded-xl mb-3" />
-                <div className="h-2 w-1/2 bg-white/5 rounded-full" />
-              </div>
-            ))
+            Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square bg-zinc-900/20 rounded-2xl animate-pulse" />)
           ) : dice.length === 0 ? (
-            <div className="col-span-full py-20 text-center">
-              <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
-              <p className="text-zinc-500 font-bold uppercase tracking-widest text-[10px]">{showDeleted ? (lang === "es" ? "La papelera está vacía" : "Recycle bin is empty") : (lang === "es" ? "No se encontraron dados" : "No dice found")}</p>
-            </div>
+            <div className="col-span-full py-20 text-center text-zinc-500 uppercase font-black text-[10px]">No dice found</div>
           ) : (
-            filteredDice.map((die: any) => {
-              const diceCount = parseInt(die.tags?.find((t: string) => t.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
-              const isRealPack = die.type === 'PACK' && diceCount > 1;
-
-              return (
-                <motion.div 
-                  key={die.id} 
-                  whileHover={{ y: -2 }} 
-                  onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                  className={`${isRealPack 
-                    ? "bg-gradient-to-br from-indigo-500/20 via-indigo-500/10 to-purple-500/10 border-indigo-400/50 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-400/30" 
-                    : "bg-zinc-900/20 border-white/[0.03]"} border rounded-2xl p-3 group cursor-pointer hover:border-white/10 transition-all shadow-xl hover:shadow-blue-500/5 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500 bg-red-500/5 border-red-500/30" : ""}`}
-                >
-                  
-                  {/* Left (List) or Top (Grid): Dice Preview */}
-                  <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden border border-white/5 ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
-                    <div 
-                      className={`rounded-lg flex items-center justify-center font-black overflow-hidden shadow-2xl border border-white/10 relative ${viewMode === "list" ? "w-8 h-8 text-[10px]" : "w-16 h-16 text-2xl"}`} 
-                      style={{ 
-                        backgroundColor: die.color || "#27272a",
-                        color: (die.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (die.color?.toLowerCase() === "#ffffff" || die.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
-                      }}
-                    >
-                      {die.preview_face && die.preview_face.trim().length > 0 ? (
-                        <div className="relative w-full h-full flex items-center justify-center">
-                          {die.preview_face.split("_DZS_SEP_").map((part: string, pIdx: number) => (
-                            <div key={pIdx} className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              {part.includes("<svg") ? (
-                                <div 
-                                  className="w-full h-full flex items-center justify-center" 
-                                  style={{ transform: 'scale(0.85)', color: 'currentColor' }}
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: part
-                                      .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block;margin:auto" ')
-                                      .replace(/fill="[^"]*"/g, 'fill="currentColor"')
-                                      .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
-                                  }}
-                                />
-                              ) : (part.startsWith("http") || part.startsWith("blob:") || part.startsWith("data:")) ? (
-                                <img src={part} alt="Preview" className="w-[85%] h-[85%] object-contain pointer-events-none" />
-                              ) : (
-                                <span className={`${viewMode === "list" ? "text-[8px]" : "text-xl"} font-black leading-none text-center`}>
-                                  {part.startsWith("file://") ? (die.type === 'PACK' ? <Package className="w-full h-full p-1" /> : die.type.replace("D","")) : part}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        die.type === 'PACK' ? <Package className="w-full h-full p-2 text-indigo-400/50" /> : <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
-                      )}
-                    </div>
-                    
-                    {isRealPack && (
-                      <div className="absolute top-1 right-1 px-1 py-0.5 bg-indigo-500 text-white text-[7px] font-black rounded shadow shadow-indigo-500/40 uppercase">
-                        {diceCount}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right (List) or Bottom (Grid): Info */}
-                  <div className="flex-1 min-w-0 flex flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2 min-w-0">
-                      <div className="flex flex-col gap-0.5 min-w-0">
-                        <h4 className={`font-black text-[10px] md:text-xs truncate uppercase tracking-tight leading-none ${isRealPack ? "text-indigo-100" : "text-white"}`}>{die.name}</h4>
-                        <div className="flex items-center gap-1 opacity-60">
-                          <p className="text-[8px] text-zinc-500 font-bold truncate uppercase leading-none">@{die.author}</p>
-                          <span className="w-0.5 h-0.5 rounded-full bg-white/20" />
-                          <span className={`text-[8px] font-black uppercase leading-none ${isRealPack ? "text-indigo-500" : "text-zinc-600"}`}>{die.type}</span>
-                        </div>
-                      </div>
-                      {isAdmin && showDeleted && (
-                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all shrink-0 ${selectedDice.includes(die.id) ? "bg-red-500 border-red-500" : "border-white/20 bg-black/40"}`}>
-                          {selectedDice.includes(die.id) && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        </div>
-                      )}
-                    </div>
-
-                    {!showDeleted ? (
-                      <div className="flex gap-1 items-stretch mt-1">
-                        {activeTab === "pending" && isAdmin ? (
-                          <button 
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              const { error } = await supabase.from("dice_packs").update({ status: 'approved' }).eq("id", die.id);
-                              if (!error) fetchDice();
-                              else alert(error.message);
-                            }}
-                            className="flex-1 bg-green-600 hover:bg-green-500 text-white h-7 rounded-lg transition-all flex items-center justify-center font-black text-[8px] uppercase tracking-widest gap-1"
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            {lang === "es" ? "Aprobar" : "Approve"}
-                          </button>
-                        ) : (
-                          <>
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                incrementDownload(die.id, die.downloads, die.share_code);
-                                setSelectedPack(die); 
-                              }} 
-                              className="flex-1 brand-gradient hover:brightness-110 h-7 rounded-lg transition-all flex items-center justify-center shadow-lg shadow-blue-500/10"
-                            >
-                              <Download className="w-3 h-3 text-white" />
-                            </button>
-                            <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 h-7 rounded-lg border border-blue-500/20 shrink-0">
-                              <span className="text-[9px] font-black text-blue-400">{die.downloads || 0}</span>
-                            </div>
-                          </>
-                        )}
-                        {(isAdmin || (user && die.user_id === user.id)) && (
-                          <>
-                            <button onClick={(e) => { e.stopPropagation(); setDiceToEdit(die); }} className="w-7 h-7 flex items-center justify-center bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-all text-zinc-500 hover:text-white"><Edit2 className="w-3 h-3" /></button>
-                            <button onClick={(e) => { e.stopPropagation(); deleteDice(die.id, die.user_id); }} className="w-7 h-7 flex items-center justify-center bg-red-500/10 hover:bg-red-500 rounded-lg border border-red-500/20 transition-all text-red-500 hover:text-white"><Trash2 className="w-3 h-3" /></button>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex gap-1 mt-1">
-                        <button onClick={(e) => { e.stopPropagation(); restoreDice([die.id]); }} className="flex-1 bg-blue-600/10 hover:bg-blue-600 text-blue-500 hover:text-white h-7 rounded-lg text-[8px] font-black border border-blue-500/20 transition-all uppercase">RESTR</button>
-                        <button onClick={(e) => { e.stopPropagation(); permanentDelete([die.id]); }} className="flex-1 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white h-7 rounded-lg text-[8px] font-black border border-red-500/20 transition-all uppercase">DEL</button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })
-          )
-        )}
-      </div>
-
-        {/* Pagination & Page Size */}
-        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between gap-6 border-t border-white/5 pt-8">
-          <div className="flex items-center gap-4">
-            <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{lang === "es" ? "Por página" : "Per page"}</span>
-            <div className="flex bg-zinc-900/50 rounded-xl p-1 border border-white/5">
-              {[10, 20, 30].map(size => (
-                <button 
-                  key={size} 
-                  onClick={() => { setPageSize(size); setCurrentPage(0); fetchDice(activeTab, 0, size); }}
-                  className={`px-4 py-1.5 rounded-lg text-[10px] font-black transition-all ${pageSize === size ? "bg-blue-600 text-white shadow-lg" : "text-zinc-500 hover:text-white"}`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button 
-              disabled={currentPage === 0}
-              onClick={() => { const p = currentPage - 1; setCurrentPage(p); fetchDice(activeTab, p); }}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
-            >
-              {lang === "es" ? "Anterior" : "Prev"}
-            </button>
-            <span className="text-[10px] font-black text-blue-500 bg-blue-500/10 px-3 py-2 rounded-xl border border-blue-500/20">
-              {currentPage + 1}
-            </span>
-            <button 
-              disabled={(dice?.length || 0) < pageSize}
-              onClick={() => { const p = currentPage + 1; setCurrentPage(p); fetchDice(activeTab, p); }}
-              className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all"
-            >
-              {lang === "es" ? "Siguiente" : "Next"}
-            </button>
-          </div>
+            filteredDice.map((die: any) => (
+              <motion.div key={die.id} onClick={() => setSelectedPack(die)} className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 cursor-pointer hover:border-white/10 transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"}`}>
+                <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 border border-white/5 ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
+                   <div className="w-full h-full flex items-center justify-center font-black" style={{ backgroundColor: die.color || "#27272a" }}>{die.type}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                   <h4 className="font-black text-[10px] md:text-xs truncate uppercase text-white">{die.name}</h4>
+                   <p className="text-[8px] text-zinc-500 font-bold uppercase tracking-tight">@{die.author}</p>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </main>
 
-      <ProfileModal 
-        isOpen={isProfileOpen} 
-        onClose={() => setIsProfileOpen(false)} 
-        user={user} 
-        lang={lang}
-        isAdmin={isAdmin}
-        isTestUser={isTestUser}
-        setIsTestUser={setIsTestUser}
-      />
+      <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} lang={lang} isAdmin={isAdmin} isTestUser={isTestUser} setIsTestUser={setIsTestUser} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
       <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} />
-      <DiceEditModal 
-        isOpen={!!diceToEdit} 
-        onClose={() => setDiceToEdit(null)} 
-        dice={diceToEdit} 
-        lang={lang} 
-        onUpdated={() => fetchDice()} 
-      />
+      <DiceEditModal isOpen={!!diceToEdit} onClose={() => setDiceToEdit(null)} dice={diceToEdit} lang={lang} onUpdated={() => fetchDice()} />
     </div>
   );
 }
-// Build Trigger: 2026-05-03 23:25 - Production Release v1.15.2
