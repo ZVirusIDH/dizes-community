@@ -77,7 +77,9 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
           tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`],
           type: metadata.type,
           color: metadata.color,
-          preview_face: metadata.preview_face
+          preview_face: metadata.preview_face,
+          status: "pending", // Vuelve a revisión tras editar
+          updated_at: new Date().toISOString()
         })
         .eq("id", dice.id);
 

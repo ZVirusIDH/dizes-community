@@ -135,10 +135,21 @@ export default function Home() {
         query = query.order("created_at", { ascending: false });
       }
 
-      const from = page * size;
-      const { data, error } = await query.range(from, from + size - 1);
+      const { data, error, count } = await query.range(from, from + size - 1);
       if (error) throw error;
-      setDice(data || []);
+      
+      // Si es moderación, cargamos emails de perfiles si es posible
+      let finalData = data || [];
+      if (isAdmin && sort === "pending") {
+         const userIds = [...new Set(finalData.map((d: any) => d.user_id))];
+         const { data: profiles } = await supabase.from("profiles").select("id, email, username").in("id", userIds);
+         finalData = finalData.map((d: any) => ({
+           ...d,
+           author_email: profiles?.find(p => p.id === d.user_id)?.email || "---"
+         }));
+      }
+
+      setDice(finalData);
     } catch (err) {
       console.error("Error fetching dice:", err);
       setDice([]); 
@@ -221,10 +232,57 @@ export default function Home() {
     setSelectedDice(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   };
 
-  const incrementDownload = async (id: string, currentDownloads: number, shareCode?: string) => {
-    if (shareCode) window.location.href = `dizes://community?code=${shareCode}`;
-    await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
-    fetchDice();
+  const approveDice = async (id: string) => {
+    const { error } = await supabase.from("dice_packs").update({ status: "approved", is_published: true }).eq("id", id);
+    if (!error) fetchDice();
+  };
+
+  const rejectDice = async (id: string) => {
+    if (!confirm(lang === "es" ? "¿Rechazar este dado?" : "Reject this die?")) return;
+    const { error } = await supabase.from("dice_packs").update({ status: "rejected", is_published: false }).eq("id", id);
+    if (!error) fetchDice();
+  };
+
+  const [inspectingId, setInspectingId] = useState<string | null>(null);
+  const [inspectedFaces, setInspectedFaces] = useState<any[]>([]);
+
+  const toggleInspect = async (die: any) => {
+    if (inspectingId === die.id) {
+      setInspectingId(null);
+      setInspectedFaces([]);
+      return;
+    }
+    
+    setInspectingId(die.id);
+    if (die.share_code) {
+      try {
+        const binData = atob(die.share_code);
+        const ui8Data = new Uint8Array(binData.length);
+        for (let i = 0; i < binData.length; i++) ui8Data[i] = binData.charCodeAt(i);
+        // Intentamos descompresión si es posible, si no, fallback a texto plano
+        let jsonStr = "";
+        try {
+          const stream = new Blob([ui8Data]).stream().pipeThrough(new DecompressionStream("gzip"));
+          const response = new Response(stream);
+          jsonStr = await response.text();
+        } catch {
+          jsonStr = atob(die.share_code);
+        }
+
+        const decoded = JSON.parse(jsonStr);
+        const isPack = Array.isArray(decoded);
+        const mainDie = isPack ? decoded[0] : decoded;
+        if (mainDie.faceContent) {
+           const f = mainDie.faceContent.map((c: string, i: number) => ({
+             content: c,
+             type: mainDie.faceContentTypes?.[i] || 'NUMBERS',
+             color: mainDie.faceColors?.[i] || mainDie.color,
+             textColor: mainDie.faceContentColors?.[i] || mainDie.textColor
+           }));
+           setInspectedFaces(f);
+        }
+      } catch (e) { console.error("Inspect error:", e); }
+    }
   };
 
   if (!isMounted) return null;
@@ -466,6 +524,95 @@ export default function Home() {
             Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square bg-zinc-900/20 rounded-2xl animate-pulse" />)
           ) : dice.length === 0 ? (
             <div className="col-span-full py-20 text-center text-zinc-500 uppercase font-black text-[10px]">No dice found</div>
+          ) : activeTab === "pending" && isAdmin ? (
+             <div className="col-span-full space-y-12">
+                {[
+                  { id: 'new', label: lang === 'es' ? 'NUEVAS SUBIDAS' : 'NEW UPLOADS', filter: (d: any) => !d.updated_at || d.updated_at === d.created_at },
+                  { id: 'updates', label: lang === 'es' ? 'ACTUALIZACIONES' : 'UPDATES', filter: (d: any) => d.updated_at && d.updated_at !== d.created_at }
+                ].map(section => {
+                  const items = filteredDice.filter(section.filter);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={section.id} className="space-y-6">
+                       <div className="flex items-center gap-4 px-2">
+                          <h2 className="text-xs font-black tracking-[0.3em] text-blue-500 uppercase">{section.label}</h2>
+                          <div className="flex-1 h-[1px] bg-blue-500/10" />
+                          <span className="text-[10px] font-black text-zinc-600">{items.length} items</span>
+                       </div>
+                       <div className={`grid gap-4 ${gridColsStyle.gridTemplateColumns.includes('repeat(1') ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+                          {items.map((die: any) => (
+                            <div key={die.id} className="bg-zinc-900/40 border border-white/5 rounded-[2.5rem] p-6 flex flex-col md:flex-row gap-6 hover:border-blue-500/30 transition-all group">
+                               <div className="w-32 h-32 bg-black/40 rounded-[2rem] flex items-center justify-center shrink-0 border border-white/5 overflow-hidden shadow-2xl relative" style={{ backgroundColor: die.color }}>
+                                  {die.preview_face?.includes("<svg") ? (
+                                    <div className="w-20 h-20" dangerouslySetInnerHTML={{ __html: die.preview_face }} />
+                                  ) : (
+                                    <span className="text-4xl font-black text-white">{die.preview_face || die.type.replace("D", "")}</span>
+                                  )}
+                               </div>
+                               <div className="flex-1 min-w-0 flex flex-col justify-between py-2">
+                                  <div>
+                                     <div className="flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-2">
+                                           <h3 className="text-xl font-black tracking-tighter uppercase truncate">{die.name}</h3>
+                                           <span className="px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/20 text-[8px] font-black text-blue-400">{die.type}</span>
+                                        </div>
+                                        <button 
+                                          onClick={() => toggleInspect(die)}
+                                          className={`px-3 py-1.5 rounded-xl text-[8px] font-black uppercase transition-all ${inspectingId === die.id ? "bg-blue-600 text-white shadow-lg" : "bg-white/5 text-zinc-500 hover:text-white"}`}
+                                        >
+                                          {inspectingId === die.id ? (lang === "es" ? "CERRAR" : "CLOSE") : (lang === "es" ? "VER CARAS" : "VIEW FACES")}
+                                        </button>
+                                     </div>
+                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
+                                        Subido por <span className="text-zinc-300">@{die.author}</span> • {die.author_email}
+                                     </p>
+                                     
+                                     {inspectingId === die.id ? (
+                                        <div className="bg-black/40 rounded-[1.5rem] p-4 mb-4 grid grid-cols-6 sm:grid-cols-8 gap-2 border border-white/5">
+                                           {inspectedFaces.length > 0 ? inspectedFaces.map((face, i) => (
+                                              <div 
+                                                key={i} 
+                                                className="aspect-square rounded-lg flex items-center justify-center text-[8px] font-black border border-white/10 overflow-hidden"
+                                                style={{ backgroundColor: face.color || die.color, color: face.textColor || "#fff" }}
+                                              >
+                                                {face.content.includes("<svg") ? (
+                                                   <div className="w-5 h-5" dangerouslySetInnerHTML={{ __html: face.content }} />
+                                                ) : (
+                                                   <span>{face.content}</span>
+                                                )}
+                                              </div>
+                                           )) : (
+                                              <div className="col-span-full py-4 text-center text-[8px] font-bold text-zinc-600 uppercase">Cargando caras...</div>
+                                           )}
+                                        </div>
+                                     ) : (
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                           {die.tags?.map((t: string, i: number) => !t.startsWith("_") && (
+                                             <span key={i} className="px-2 py-1 rounded-lg bg-white/5 text-[8px] font-black text-zinc-400 border border-white/5 uppercase">#{t}</span>
+                                           ))}
+                                        </div>
+                                     )}
+                                  </div>
+
+                                  <div className="flex flex-col sm:flex-row gap-3">
+                                     <button onClick={() => approveDice(die.id)} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 transition-all flex items-center justify-center gap-2">
+                                        <CheckCircle2 className="w-4 h-4" /> {lang === "es" ? "APROBAR" : "APPROVE"}
+                                     </button>
+                                     <button onClick={() => setDiceToEdit(die)} className="px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 py-3 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2">
+                                        <Edit2 className="w-4 h-4" /> {lang === "es" ? "EDITAR" : "EDIT"}
+                                     </button>
+                                     <button onClick={() => rejectDice(die.id)} className="px-4 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white py-3 rounded-2xl text-[10px] font-black uppercase transition-all border border-red-500/20 flex items-center justify-center gap-2">
+                                        <Trash2 className="w-4 h-4" /> {lang === "es" ? "RECHAZAR" : "REJECT"}
+                                     </button>
+                                  </div>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  );
+                })}
+             </div>
           ) : (
             filteredDice.map((die: any) => {
               const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
