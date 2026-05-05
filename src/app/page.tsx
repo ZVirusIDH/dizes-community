@@ -616,19 +616,19 @@ export default function Home() {
              </div>
           ) : (
             filteredDice.map((die: any) => {
-              const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
-              const isRealPack = die.type === 'PACK' || diceCount > 1;
+              const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type?.toUpperCase() === 'PACK' ? "2" : "1"));
+              const isRealPack = die.type?.toUpperCase() === 'PACK' || diceCount > 1;
 
               return (
                 <motion.div 
                   key={die.id} 
-                  whileHover={{ y: -2 }}
+                  whileHover={{ y: -4, scale: 1.02 }}
                   onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                  className={`relative bg-zinc-900/20 border rounded-2xl p-3 cursor-pointer transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500" : isRealPack ? "border-amber-400/50 shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:border-amber-400 bg-gradient-to-br from-amber-500/[0.05] to-transparent" : "border-white/[0.03] hover:border-white/10"}`}
+                  className={`relative border rounded-[2rem] p-3 cursor-pointer transition-all duration-300 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-3"} ${selectedDice.includes(die.id) ? "ring-4 ring-red-500 border-red-500" : isRealPack ? "bg-amber-500/[0.07] border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.15)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)]" : "bg-zinc-900/20 border-white/[0.05] hover:border-white/20"}`}
                 >
                   {isRealPack && (
-                    <div className="absolute -top-2 -right-1 z-10 flex items-center gap-1 bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-2 py-0.5 rounded-full text-[7px] font-black shadow-lg shadow-amber-500/40 uppercase tracking-tighter">
-                      <Package className="w-2.5 h-2.5" />
+                    <div className="absolute -top-3 -right-2 z-20 flex items-center gap-1.5 bg-gradient-to-br from-yellow-400 via-amber-500 to-amber-700 text-black px-3 py-1 rounded-full text-[9px] font-black shadow-[0_4px_12px_rgba(245,158,11,0.4)] uppercase tracking-tighter border border-yellow-200/30">
+                      <Package className="w-3 h-3" />
                       <span>PACK {diceCount > 1 ? `x${diceCount}` : ""}</span>
                     </div>
                   )}
