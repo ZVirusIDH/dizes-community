@@ -617,15 +617,22 @@ export default function Home() {
           ) : (
             filteredDice.map((die: any) => {
               const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type === 'PACK' ? "2" : "1"));
-              const isRealPack = die.type === 'PACK' && diceCount > 1;
+              const isRealPack = die.type === 'PACK' || diceCount > 1;
 
               return (
                 <motion.div 
                   key={die.id} 
                   whileHover={{ y: -2 }}
                   onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
-                  className={`bg-zinc-900/20 border border-white/[0.03] rounded-2xl p-3 cursor-pointer hover:border-white/10 transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500" : ""}`}
+                  className={`relative bg-zinc-900/20 border rounded-2xl p-3 cursor-pointer transition-all ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-2"} ${selectedDice.includes(die.id) ? "ring-2 ring-red-500" : isRealPack ? "border-amber-400/50 shadow-[0_0_15px_rgba(245,158,11,0.1)] hover:shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:border-amber-400 bg-gradient-to-br from-amber-500/[0.05] to-transparent" : "border-white/[0.03] hover:border-white/10"}`}
                 >
+                  {isRealPack && (
+                    <div className="absolute -top-2 -right-1 z-10 flex items-center gap-1 bg-gradient-to-r from-amber-600 to-yellow-500 text-white px-2 py-0.5 rounded-full text-[7px] font-black shadow-lg shadow-amber-500/40 uppercase tracking-tighter">
+                      <Package className="w-2.5 h-2.5" />
+                      <span>PACK {diceCount > 1 ? `x${diceCount}` : ""}</span>
+                    </div>
+                  )}
+
                   <div className={`bg-black/40 rounded-xl flex items-center justify-center relative shrink-0 border border-white/5 overflow-hidden ${viewMode === "list" ? "w-12 h-12" : "aspect-square w-full"}`}>
                     <div 
                       className={`w-full h-full flex items-center justify-center font-black relative`} 
@@ -719,4 +726,4 @@ export default function Home() {
   );
 }
 
-// Build Trigger: 2026-05-04 10:16 - Production Stabilization
+// Build Trigger: 2026-05-04 22:42 - Multi-Dice Color Overhaul
