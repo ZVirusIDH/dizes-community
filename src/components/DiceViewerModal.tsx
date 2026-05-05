@@ -128,7 +128,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                     <span className="leading-none">{pack.preview_face}</span>
                   )
                 ) : (
-                  pack.type === 'PACK' ? <Package className="w-7 h-7" /> : <span className="leading-none">{pack.type.replace("D", "")}</span>
+                  pack.type === 'PACK' ? <Package className="w-7 h-7" /> : <span className="leading-none">{pack.type === 'DX' ? 'DX' : pack.type.replace("D", "")}</span>
                 )}
               </div>
                <div>
@@ -157,7 +157,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
                   <div key={idx} className="bg-black/40 border border-white/5 rounded-3xl p-6">
                     <div className="flex items-center gap-4 mb-6 pb-4 border-b border-white/5">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white" style={{ backgroundColor: die.color || pack.color }}>
-                        {die.type.replace("D", "")}
+                        {die.type === 'DX' ? 'DX' : die.type.replace("D", "")}
                       </div>
                       <div>
                         <h3 className="font-black text-lg">{die.name}</h3>
@@ -246,7 +246,9 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
 
                         return (
                           <div key={fIdx} className="aspect-square rounded-2xl flex items-center justify-center relative group p-1 shadow-inner overflow-hidden" style={{ backgroundColor: faceBg }}>
-                            <span className="absolute top-1 left-1.5 text-[7px] font-black mix-blend-difference text-white/40 z-10">{fIdx + 1}</span>
+                            {(mainContent || secContent) && (
+                              <span className="absolute top-1 left-1.5 text-[7px] font-black mix-blend-difference text-white/40 z-10">{fIdx + 1}</span>
+                            )}
                             
                             <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
                                 {renderContent(mainContent)}

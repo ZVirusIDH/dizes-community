@@ -167,7 +167,7 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
                         onChange={(e) => setMetadata({...metadata, type: e.target.value})}
                         className="w-full bg-black/40 border border-zinc-800 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:border-blue-500 transition-colors appearance-none"
                       >
-                        {["D2", "D4", "D6", "D8", "D10", "D12", "D20", "D100", "PACK"].map(t => (
+                        {["D2", "D4", "D6", "D8", "D10", "D12", "D20", "D100", "DX", "PACK"].map(t => (
                           <option key={t} value={t}>{t}</option>
                         ))}
                       </select>

@@ -1,5 +1,12 @@
 # Dizes Community Agent Status
 
+## [2026-05-05] - DX Support & UI Refinement
+**Agente**: Antigravity
+**Cambios Realizados**:
+- **DX Support**: Añadido "DX" a los tipos de dado soportados en `DiceEditModal.tsx` para permitir la edición y correcta clasificación de dados dinámicos.
+- **UI Rendering**: Actualizado `page.tsx` y `DiceViewerModal.tsx` para mostrar correctamente la etiqueta "DX" en lugar de "X" en previsualizaciones y detalles.
+- **Data Integrity**: Verificado que el backend de Supabase (tabla `dice_packs`) maneja correctamente el string de tipo "DX" y los conteos de caras dinámicos.
+
 ## [2026-05-04] - Portal UI & UX Refresh
 **Agente**: Antigravity
 **Cambios Realizados**:

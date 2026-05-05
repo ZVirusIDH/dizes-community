@@ -88,7 +88,7 @@ export default function Home() {
   const [isActualMobile, setIsActualMobile] = useState(false);
   const [selectedDice, setSelectedDice] = useState<string[]>([]);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterType, setFilterType] = useState<"all" | "dice" | "icons">("all");
+  const [filterType, setFilterType] = useState<"all" | "packs" | "dice" | "standalone">("all");
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
   const loadUserProfile = async (userId: string) => {
@@ -115,16 +115,18 @@ export default function Home() {
         if (sort === "pending") {
           query = query.eq("status", "pending");
         } else {
-          if (!isAdmin) {
-            query = query.eq("is_published", true).eq("status", "approved");
-          } else {
+          if (isAdmin) {
             query = query.eq("status", "approved");
+          } else {
+            query = query.eq("is_published", true).eq("status", "approved");
           }
 
-          if (fType === "dice") {
-            query = query.neq("type", "D2");
-          } else if (fType === "icons") {
-            query = query.eq("type", "D2");
+          if (fType === "packs") {
+            query = query.eq("type", "PACK");
+          } else if (fType === "dice") {
+            query = query.neq("type", "PACK");
+          } else if (fType === "standalone") {
+            query = query.neq("type", "PACK").not("tags", "cs", '{"_part_of_pack"}');
           }
         }
       }
@@ -166,8 +168,8 @@ export default function Home() {
       const isMob = window.innerWidth < 768;
       setIsActualMobile(isMob);
       if (isMob) {
-        setGridCols(prev => Math.min(prev, 4));
-        setListCols(prev => Math.min(prev, 2));
+        setGridCols(2);
+        setListCols(1);
       } else {
         setGridCols(prev => Math.max(prev, 4));
       }
@@ -480,15 +482,20 @@ export default function Home() {
                   >
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">Content Type</label>
+                        <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-2 block">{lang === 'es' ? 'Mostrar' : 'Show'}</label>
                         <div className="flex flex-col gap-1">
-                          {["all", "dice", "icons"].map(opt => (
+                          {[
+                            { id: "all", label: lang === 'es' ? 'Todo' : 'All' },
+                            { id: "packs", label: lang === 'es' ? 'Solo Packs' : 'Packs Only' },
+                            { id: "dice", label: lang === 'es' ? 'Solo Dados' : 'Dice Only' },
+                            { id: "standalone", label: lang === 'es' ? 'Dados sin pack' : 'Standalone Dice' }
+                          ].map(opt => (
                             <button 
-                              key={opt}
-                              onClick={() => { setFilterType(opt as any); fetchDice(activeTab, currentPage, pageSize, showDeleted, opt as any); setIsFiltersOpen(false); }}
-                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold ${filterType === opt ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5"}`}
+                              key={opt.id}
+                              onClick={() => { setFilterType(opt.id as any); fetchDice(activeTab, currentPage, pageSize, showDeleted, opt.id as any); setIsFiltersOpen(false); }}
+                              className={`text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${filterType === opt.id ? "bg-blue-600 text-white" : "text-zinc-400 hover:bg-white/5"}`}
                             >
-                              {opt}
+                              {opt.label}
                             </button>
                           ))}
                         </div>
@@ -616,7 +623,8 @@ export default function Home() {
              </div>
           ) : (
             filteredDice.map((die: any) => {
-              const diceCount = parseInt(die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1] || (die.type?.toUpperCase() === 'PACK' ? "2" : "1"));
+              const tagCount = die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1];
+              const diceCount = tagCount ? parseInt(tagCount) : (die.type?.toUpperCase() === 'PACK' ? 0 : 1);
               const isRealPack = die.type?.toUpperCase() === 'PACK' || diceCount > 1;
 
               return (
@@ -626,10 +634,10 @@ export default function Home() {
                   onClick={() => isAdmin && showDeleted ? toggleSelect(die.id) : setSelectedPack(die)} 
                   className={`relative border rounded-[2rem] p-3 cursor-pointer transition-all duration-300 ${viewMode === "list" ? "flex items-center gap-4" : "flex flex-col gap-3"} ${selectedDice.includes(die.id) ? "ring-4 ring-red-500 border-red-500" : isRealPack ? "bg-amber-500/[0.07] border-amber-400 shadow-[0_0_25px_rgba(245,158,11,0.15)] hover:shadow-[0_0_35px_rgba(245,158,11,0.25)]" : "bg-zinc-900/20 border-white/[0.05] hover:border-white/20"}`}
                 >
-                  {isRealPack && (
+                    {isRealPack && (
                     <div className="absolute -top-3 -right-2 z-20 flex items-center gap-1.5 bg-gradient-to-br from-yellow-400 via-amber-500 to-amber-700 text-black px-3 py-1 rounded-full text-[9px] font-black shadow-[0_4px_12px_rgba(245,158,11,0.4)] uppercase tracking-tighter border border-yellow-200/30">
                       <Package className="w-3 h-3" />
-                      <span>PACK {diceCount > 1 ? `x${diceCount}` : ""}</span>
+                      <span>PACK</span>
                     </div>
                   )}
 
@@ -661,7 +669,7 @@ export default function Home() {
                           ))}
                         </div>
                       ) : (
-                        <span className="leading-none">{die.type?.replace("D", "") || "6"}</span>
+                        <span className="leading-none">{die.type === "DX" ? "DX" : (die.type?.replace("D", "") || "6")}</span>
                       )}
                     </div>
                   </div>
