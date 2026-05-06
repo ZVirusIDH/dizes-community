@@ -140,9 +140,8 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownloa
                     )}
                   </div>
                 );
-                  </div>
-              );
-            })()}
+              })()}
+            </div>
             <div>
               <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none">{pack.name}</h2>
               {pack.tags && pack.tags.length > 0 && (
