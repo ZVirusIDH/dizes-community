@@ -152,9 +152,8 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownloa
                 <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full uppercase">{pack.type}</span>
               </div>
             </div>
+            <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors absolute top-6 right-6 z-10"><X className="w-6 h-6" /></button>
           </div>
-          <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
-        </div>
 
           <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
             {loading ? (
