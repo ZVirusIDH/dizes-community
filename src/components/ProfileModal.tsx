@@ -295,7 +295,12 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                               {u.username || 'User'}
                               {u.max_published >= 60 && <span className="bg-amber-500 text-black text-[7px] px-1.5 py-0.5 rounded-full font-black">VIP</span>}
                             </h4>
-                            <p className="text-[8px] font-bold text-zinc-500 uppercase truncate">{u.email}</p>
+                            <p className="text-[8px] font-bold text-zinc-500 uppercase truncate flex items-center gap-2">
+                              {u.email}
+                              {u.is_trusted && (
+                                <span className="bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded text-[6px]">TRUSTED</span>
+                              )}
+                            </p>
                             <p className="text-[8px] font-black text-blue-500 uppercase mt-1">{u.dice_count} {dict.diceCount}</p>
                           </div>
                         </div>
