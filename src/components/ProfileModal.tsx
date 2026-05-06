@@ -62,6 +62,7 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
   const [uploads, setUploads] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userProfileMetadata, setUserProfileMetadata] = useState<any>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const dict = {
@@ -75,7 +76,7 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
 
   useEffect(() => {
     if (isOpen && user) {
-      if (activeTab === "data") loadProfile();
+      loadProfile(); // Carga siempre el perfil para los badges
       if (activeTab === "uploads" || activeTab === "deleted") loadUploads();
       if (activeTab === "users" && isAdmin) loadUsers();
     }
@@ -111,6 +112,7 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
     if (data) {
       setUsername(data.username || "");
       setAvatarUrl(data.avatar_url || "");
+      setUserProfileMetadata(data);
     } else {
       setUsername(user.user_metadata?.username || "");
     }
@@ -209,7 +211,15 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                   {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : username[0]?.toUpperCase() || "U"}
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black tracking-tighter uppercase">{dict.title}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-2xl font-black tracking-tighter uppercase">{dict.title}</h2>
+                    {isAdmin && (
+                      <span className="bg-blue-500 text-white text-[8px] px-2 py-0.5 rounded-full font-black shadow-lg shadow-blue-500/20">ADMIN</span>
+                    )}
+                    {(userProfileMetadata?.max_published || 0) >= 60 && (
+                      <span className="bg-amber-500 text-black text-[8px] px-2 py-0.5 rounded-full font-black animate-pulse shadow-lg shadow-amber-500/20">VIP</span>
+                    )}
+                  </div>
                   <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{user.email}</p>
                 </div>
               </div>

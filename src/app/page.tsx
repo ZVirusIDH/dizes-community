@@ -169,7 +169,7 @@ export default function Home() {
           ...d,
           author_email: prof?.email || "---",
           author_is_vip: (prof?.max_published || 0) >= 60,
-          author_is_admin: prof?.is_admin || (prof?.email?.toLowerCase() === ADMIN_EMAIL) || false
+          author_is_admin: prof?.is_admin || (prof?.email?.toLowerCase() === ADMIN_EMAIL) || (d.author?.toUpperCase() === "ZVIRUS") || false
         };
       });
 
