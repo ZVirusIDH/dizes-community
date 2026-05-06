@@ -249,6 +249,20 @@ export default function Home() {
   const [inspectingId, setInspectingId] = useState<string | null>(null);
   const [inspectedFaces, setInspectedFaces] = useState<any[]>([]);
 
+  const incrementDownload = async (id: string, currentDownloads: number, shareCode?: string) => {
+    try {
+      await supabase.from("dice_packs").update({ downloads: (currentDownloads || 0) + 1 }).eq("id", id);
+      if (shareCode) {
+        navigator.clipboard.writeText(shareCode);
+      }
+      // Actualizamos localmente para feedback inmediato si se desea, 
+      // aunque fetchDice se llamará al cerrar o recargar
+      setDice(prev => prev?.map(d => d.id === id ? { ...d, downloads: (d.downloads || 0) + 1 } : d) || null);
+    } catch (err) {
+      console.error("Error incrementing downloads:", err);
+    }
+  };
+
   const toggleInspect = async (die: any) => {
     if (inspectingId === die.id) {
       setInspectingId(null);
@@ -624,8 +638,8 @@ export default function Home() {
           ) : (
             filteredDice.map((die: any) => {
               const tagCount = die.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1];
-              const diceCount = tagCount ? parseInt(tagCount) : (die.type?.toUpperCase() === 'PACK' ? 0 : 1);
-              const isRealPack = die.type?.toUpperCase() === 'PACK' || diceCount > 1;
+              const diceCount = tagCount ? parseInt(tagCount) : 1;
+              const isRealPack = diceCount > 1;
 
               return (
                 <motion.div 
@@ -728,7 +742,7 @@ export default function Home() {
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} user={user} lang={lang} isAdmin={isAdmin} isTestUser={isTestUser} setIsTestUser={setIsTestUser} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
-      <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} />
+      <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} onDownload={incrementDownload} />
       <DiceEditModal isOpen={!!diceToEdit} onClose={() => setDiceToEdit(null)} dice={diceToEdit} lang={lang} onUpdated={() => fetchDice()} />
     </div>
   );

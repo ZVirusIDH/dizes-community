@@ -26,6 +26,7 @@ const t = {
     name: "Nombre del pack",
     tags: "Juego al que pertenece",
     description: "Descripción",
+    successApproval: "¡Subido con éxito! Aparecerá en la web en cuanto sea aprobado por un moderador.",
   },
   en: {
     title: "Share Dice",
@@ -40,14 +41,15 @@ const t = {
     name: "Pack Name",
     tags: "Game name",
     description: "Description",
-  }
+    successApproval: "Uploaded successfully! It will appear on the web once approved by a moderator.",
+  } 
 };
 
 export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps) {
   const [activeTab, setActiveTab] = useState<"file" | "code">("file");
   const [file, setFile] = useState<File | null>(null);
   const [rawCode, setRawCode] = useState("");
-  const [status, setStatus] = useState<"idle" | "validating" | "success" | "error" | "uploading">("idle");
+  const [status, setStatus] = useState<"idle" | "validating" | "success" | "error" | "uploading" | "published">("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [faces, setFaces] = useState<any[]>([]);
   const [extractedImages, setExtractedImages] = useState<{[path: string]: Blob}>({});
@@ -111,8 +113,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
           name: isPack ? "Dice Pack" : (mainDie.name || "Custom Die"),
           tags: isPack ? "Pack" : (mainDie.type || "Die"),
           description: isPack ? "A collection of dice." : `A single ${mainDie.type || 'D6'} die.`,
-          color: isPack ? "#3b82f6" : (mainDie.color || "#3b82f6"),
-          type: isPack ? "PACK" : (mainDie.type || "D6"),
+          color: (isPack && decoded.length > 1) ? "#3b82f6" : (mainDie.color || "#3b82f6"),
+          type: (isPack && decoded.length > 1) ? "PACK" : (mainDie.type || "D6"),
           isPublished: true
         });
 
@@ -192,7 +194,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         tags: isPack ? selectedFile.name.replace(".dizes", "") : (mainDie.type || "Die"),
         description: "",
         color: mainDie.color || "#3b82f6",
-        type: isPack ? "PACK" : (mainDie.type || "D6"),
+        type: (isPack && data.length > 1) ? "PACK" : (mainDie.type || "D6"),
         isPublished: true
       });
 
@@ -396,8 +398,8 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const { error: dbError } = await supabase.from("dice_packs").insert(cleanInserts);
 
       if (dbError) throw dbError;
-      setStatus("success");
-      setTimeout(() => { onClose(); window.location.reload(); }, 1500);
+      setStatus("published");
+      setTimeout(() => { onClose(); window.location.reload(); }, 4000);
     } catch (err: any) {
       console.error("Upload Error:", err);
       setStatus("error");
@@ -415,7 +417,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
             
             {/* Status Overlay */}
             <AnimatePresence>
-              {(status === "uploading" || status === "validating") && (
+              {(status === "uploading" || status === "validating" || status === "published") && (
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -423,14 +425,24 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                   className="absolute inset-0 z-[101] bg-zinc-900/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-center"
                 >
                   <div className="w-24 h-24 bg-blue-600/10 rounded-[2rem] flex items-center justify-center mb-8 relative">
-                    <div className="absolute inset-0 bg-blue-500/20 animate-ping rounded-[2rem]" />
-                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin relative z-10" />
+                    {status === "published" ? (
+                      <CheckCircle2 className="w-12 h-12 text-green-500 relative z-10" />
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-blue-500/20 animate-ping rounded-[2rem]" />
+                        <Loader2 className="w-10 h-10 text-blue-500 animate-spin relative z-10" />
+                      </>
+                    )}
                   </div>
                   <h3 className="text-2xl font-black mb-2 uppercase tracking-tighter italic">
-                    {status === "uploading" ? (lang === "es" ? "SUBIENDO..." : "UPLOADING...") : (lang === "es" ? "VALIDANDO..." : "VALIDATING...")}
+                    {status === "published" ? (lang === "es" ? "¡LISTO!" : "SUCCESS!") : 
+                     status === "uploading" ? (lang === "es" ? "SUBIENDO..." : "UPLOADING...") : 
+                     (lang === "es" ? "VALIDANDO..." : "VALIDATING...")}
                   </h3>
                   <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest opacity-60">
-                    {status === "uploading" ? (lang === "es" ? "Preparando tus dados para la comunidad" : "Preparing your dice for the community") : (lang === "es" ? "Comprobando integridad del archivo" : "Checking file integrity")}
+                    {status === "published" ? dict.successApproval :
+                     status === "uploading" ? (lang === "es" ? "Preparando tus dados para la comunidad" : "Preparing your dice for the community") : 
+                     (lang === "es" ? "Comprobando integridad del archivo" : "Checking file integrity")}
                   </p>
                 </motion.div>
               )}
@@ -541,6 +553,13 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
                           className="w-3 h-3 bg-white rounded-full absolute top-1.5 shadow-sm"
                         />
                       </button>
+                    </div>
+
+                    <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-start gap-3 mt-4">
+                       <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                       <p className="text-[9px] font-bold text-amber-200/80 leading-relaxed uppercase">
+                          {dict.successApproval}
+                       </p>
                     </div>
 
                     {packItems.length > 0 && (

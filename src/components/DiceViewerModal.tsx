@@ -10,6 +10,7 @@ interface DiceViewerModalProps {
   onClose: () => void;
   pack: any | null;
   lang: "es" | "en";
+  onDownload?: (id: string, current: number) => void;
 }
 
 const decodeBase64Gzip = async (base64str: string): Promise<string> => {
@@ -28,7 +29,7 @@ const decodeBase64Gzip = async (base64str: string): Promise<string> => {
   }
 };
 
-export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceViewerModalProps) {
+export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownload }: DiceViewerModalProps) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -86,6 +87,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
     if (pack?.share_code) {
       navigator.clipboard.writeText(pack.share_code);
       setCopied(true);
+      if (onDownload) onDownload(pack.id, pack.downloads);
       setTimeout(() => setCopied(false), 2000);
     }
   };
@@ -101,49 +103,59 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
           
           <div className="p-6 md:p-8 flex items-start justify-between border-b border-white/5 bg-black/20">
             <div className="flex items-center gap-4">
-              <div 
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl overflow-hidden border border-white/10" 
-                style={{ 
-                  backgroundColor: pack.color,
-                  color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
-                }}
-              >
-                {pack.preview_face && pack.preview_face.length > 10 ? (
-                  pack.preview_face.includes("<svg") ? (
-                    <div 
-                      className="w-10 h-10 flex items-center justify-center" 
-                      style={{ 
-                        color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
-                      }}
-                      dangerouslySetInnerHTML={{ 
-                        __html: pack.preview_face
-                          .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block" ')
-                          .replace(/fill="[^"]*"/g, 'fill="currentColor"')
-                          .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
-                      }}
-                    />
-                  ) : pack.preview_face.startsWith("http") ? (
-                    <img src={pack.preview_face} alt="Preview" className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="leading-none">{pack.preview_face}</span>
-                  )
-                ) : (
-                  pack.type === 'PACK' ? <Package className="w-7 h-7" /> : <span className="leading-none">{pack.type === 'DX' ? 'DX' : pack.type.replace("D", "")}</span>
-                )}
-              </div>
-               <div>
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none">{pack.name}</h2>
-                {pack.tags && pack.tags.length > 0 && (
-                  <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1 opacity-70">{pack.tags[0]}</p>
-                )}
-                <div className="flex gap-2 items-center mt-3">
-                  <span className="text-xs font-bold text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">@{pack.author}</span>
-                  <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full uppercase">{pack.type}</span>
-                </div>
+              {(() => {
+                const tagCount = pack.tags?.find((tg: string) => tg.startsWith("_count:"))?.split(":")[1];
+                const diceCount = tagCount ? parseInt(tagCount) : 1;
+                const isRealPack = diceCount > 1;
+
+                return (
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black text-white shadow-xl overflow-hidden border border-white/10" 
+                    style={{ 
+                      backgroundColor: pack.color,
+                      color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
+                    }}
+                  >
+                    {pack.preview_face && pack.preview_face.length > 10 ? (
+                      pack.preview_face.includes("<svg") ? (
+                        <div 
+                          className="w-10 h-10 flex items-center justify-center" 
+                          style={{ 
+                            color: (pack.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1]) || (pack.color?.toLowerCase() === "#ffffff" || pack.color?.toLowerCase() === "white" ? "#000000" : "#ffffff")
+                          }}
+                          dangerouslySetInnerHTML={{ 
+                            __html: pack.preview_face
+                              .replace(/<svg/i, '<svg style="width:100%;height:100%;display:block" ')
+                              .replace(/fill="[^"]*"/g, 'fill="currentColor"')
+                              .replace(/stroke="[^"]*"/g, 'stroke="currentColor"')
+                          }}
+                        />
+                      ) : pack.preview_face.startsWith("http") ? (
+                        <img src={pack.preview_face} alt="Preview" className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="leading-none">{pack.preview_face}</span>
+                      )
+                    ) : (
+                      isRealPack ? <Package className="w-7 h-7" /> : <span className="leading-none">{pack.type === 'DX' ? 'DX' : pack.type.replace("D", "")}</span>
+                    )}
+                  </div>
+                );
+                  </div>
+              );
+            })()}
+            <div>
+              <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase leading-none">{pack.name}</h2>
+              {pack.tags && pack.tags.length > 0 && (
+                <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1 opacity-70">{pack.tags[0]}</p>
+              )}
+              <div className="flex gap-2 items-center mt-3">
+                <span className="text-xs font-bold text-zinc-500 bg-white/5 px-2 py-0.5 rounded-full">@{pack.author}</span>
+                <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full uppercase">{pack.type}</span>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
           </div>
+          <button onClick={onClose} className="p-2 bg-white/5 hover:bg-white/10 rounded-full transition-colors"><X className="w-6 h-6" /></button>
+        </div>
 
           <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8">
             {loading ? (
@@ -269,6 +281,7 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang }: DiceVie
               <button 
                 onClick={() => {
                   const encoded = encodeURIComponent(pack.share_code);
+                  if (onDownload) onDownload(pack.id, pack.downloads);
                   window.location.href = `dizes://community?code=${encoded}`;
                 }} 
                 className="flex-[2] py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-colors shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
