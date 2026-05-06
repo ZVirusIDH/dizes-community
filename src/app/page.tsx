@@ -91,13 +91,30 @@ export default function Home() {
   const [filterType, setFilterType] = useState<"all" | "packs" | "dice" | "standalone">("all");
   const [diceToEdit, setDiceToEdit] = useState<any | null>(null);
 
-  const loadUserProfile = async (userId: string) => {
+  const loadUserProfile = async (userId: string, userEmail?: string, metadata?: any) => {
     try {
-      const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
       if (data) {
         setUserProfile(data);
         if (data.is_admin) setIsAdmin(true);
         return data;
+      }
+      
+      // Si no existe el perfil (error PGRST116), lo creamos
+      if (error && (error.code === 'PGRST116' || error.message?.includes('0 rows'))) {
+        const { data: newProfile, error: insError } = await supabase.from("profiles").insert({
+          id: userId,
+          email: userEmail,
+          username: metadata?.username || userEmail?.split('@')[0] || "User",
+          max_published: 30
+        }).select().single();
+        
+        if (newProfile) {
+          setUserProfile(newProfile);
+          return newProfile;
+        } else {
+          console.error("Error creating profile:", insError);
+        }
       }
     } catch (e) { console.error("Error loading profile:", e); }
     return null;
@@ -141,16 +158,20 @@ export default function Home() {
       const { data, error, count } = await query.range(from, from + size - 1);
       if (error) throw error;
       
-      // Si es moderación, cargamos emails de perfiles si es posible
+      // Siempre cargamos info de autor para colores de nombre
       let finalData = data || [];
-      if (isAdmin && sort === "pending") {
-         const userIds = [...new Set(finalData.map((d: any) => d.user_id))];
-         const { data: profiles } = await supabase.from("profiles").select("id, email, username").in("id", userIds);
-         finalData = finalData.map((d: any) => ({
-           ...d,
-           author_email: profiles?.find(p => p.id === d.user_id)?.email || "---"
-         }));
-      }
+      const userIds = [...new Set(finalData.map((d: any) => d.user_id))];
+      const { data: profiles } = await supabase.from("profiles").select("id, email, username, max_published, is_admin").in("id", userIds);
+      
+      finalData = finalData.map((d: any) => {
+        const prof = profiles?.find(p => p.id === d.user_id);
+        return {
+          ...d,
+          author_email: prof?.email || "---",
+          author_is_vip: (prof?.max_published || 0) >= 60,
+          author_is_admin: prof?.is_admin || false
+        };
+      });
 
       setDice(finalData);
     } catch (err) {
@@ -181,13 +202,13 @@ export default function Home() {
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUserProfile(session.user.id);
+      if (session?.user) loadUserProfile(session.user.id, session.user.email, session.user.user_metadata);
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadUserProfile(session.user.id);
+      if (session?.user) loadUserProfile(session.user.id, session.user.email, session.user.user_metadata);
       else setUserProfile(null);
       
       if (session?.user?.email === ADMIN_EMAIL) setIsAdmin(true);
@@ -585,8 +606,11 @@ export default function Home() {
                                           {inspectingId === die.id ? (lang === "es" ? "CERRAR" : "CLOSE") : (lang === "es" ? "VER CARAS" : "VIEW FACES")}
                                         </button>
                                      </div>
-                                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-4">
-                                        Subido por <span className="text-zinc-300">@{die.author}</span> • {die.author_email}
+                                     <p className={`text-[10px] font-bold uppercase tracking-widest mb-4 ${
+                                        die.author_is_admin ? "text-blue-400" : 
+                                        die.author_is_vip ? "text-amber-400" : "text-zinc-500"
+                                     }`}>
+                                        Subido por <span className="opacity-80">@{die.author}</span> • {die.author_email}
                                      </p>
                                      
                                      {inspectingId === die.id ? (
@@ -690,7 +714,10 @@ export default function Home() {
 
                   <div className="flex-1 min-w-0 flex flex-col gap-1">
                     <h4 className="font-black text-[10px] md:text-xs truncate uppercase text-white leading-none">{die.name}</h4>
-                    <p className="text-[8px] text-zinc-500 font-bold uppercase leading-none">@{die.author} • {die.type}</p>
+                    <p className={`text-[8px] font-bold uppercase leading-none ${
+                      die.author_is_admin ? "text-blue-400" : 
+                      die.author_is_vip ? "text-amber-400" : "text-zinc-500"
+                    }`}>@{die.author} • {die.type}</p>
                     
                     {!showDeleted && (
                       <div className="flex gap-1 items-stretch mt-1">
