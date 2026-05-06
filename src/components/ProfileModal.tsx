@@ -175,6 +175,11 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
     if (!error) loadUploads();
   };
 
+  const recoverItem = async (id: string) => {
+    const { error } = await supabase.from("dice_packs").update({ deleted_at: null }).eq("id", id);
+    if (!error) loadUploads();
+  };
+
   const toggleVip = async (targetUser: any) => {
     const isVip = targetUser.max_published >= 60;
     const newMax = isVip ? 30 : 60;
@@ -373,7 +378,10 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                                      {activeTab === "uploads" ? (
                                        <button onClick={() => softDelete(item.id)} className="p-2 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl border border-red-500/20 transition-all"><Trash2 className="w-4 h-4" /></button>
                                      ) : (
-                                       <button onClick={() => hardDelete(item.id)} className="p-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-black text-[8px]">FINAL DELETE</button>
+                                       <div className="flex gap-2">
+                                         <button onClick={() => recoverItem(item.id)} className="px-3 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-black text-[8px] uppercase">RECOVER</button>
+                                         <button onClick={() => hardDelete(item.id)} className="p-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-black text-[8px]">FINAL DELETE</button>
+                                       </div>
                                      )}
                                   </div>
                                 </div>
