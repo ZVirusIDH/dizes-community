@@ -63,7 +63,7 @@ const translations = {
 };
 
 export default function Home() {
-  const ADMIN_EMAILS = ["zvirus@gmail.com", "rubenmsc@gmail.com"];
+  const ADMIN_EMAIL = "zvirus@gmail.com";
   const [lang, setLang] = useState<Language>("es");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -169,7 +169,7 @@ export default function Home() {
           ...d,
           author_email: prof?.email || "---",
           author_is_vip: (prof?.max_published || 0) >= 60,
-          author_is_admin: prof?.is_admin || (prof?.email && ADMIN_EMAILS.includes(prof.email)) || false
+          author_is_admin: prof?.is_admin || (prof?.email?.toLowerCase() === ADMIN_EMAIL) || false
         };
       });
 
@@ -203,7 +203,7 @@ export default function Home() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) loadUserProfile(session.user.id, session.user.email, session.user.user_metadata);
-      if (session?.user?.email && ADMIN_EMAILS.includes(session.user.email)) setIsAdmin(true);
+      if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL) setIsAdmin(true);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -211,7 +211,7 @@ export default function Home() {
       if (session?.user) loadUserProfile(session.user.id, session.user.email, session.user.user_metadata);
       else setUserProfile(null);
       
-      if (session?.user?.email && ADMIN_EMAILS.includes(session.user.email)) setIsAdmin(true);
+      if (session?.user?.email?.toLowerCase() === ADMIN_EMAIL) setIsAdmin(true);
       else setIsAdmin(false);
     });
 
