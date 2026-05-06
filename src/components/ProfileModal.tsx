@@ -139,6 +139,17 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    const forbiddenUsernames = ["ADMIN", "DIZES", "MODERATOR", "SUPPORT", "SYSTEM"];
+    const upperName = username.toUpperCase().trim();
+    if (forbiddenUsernames.some(f => upperName.includes(f)) || upperName.includes("ZVIRUS")) {
+       if (user.email !== "zvirus@gmail.com") {
+         setMessage({ type: "error", text: lang === "es" ? "Nombre reservado" : "Reserved username" });
+         setLoading(false);
+         return;
+       }
+    }
+
     const { error } = await supabase.from("profiles").upsert({
       id: user.id,
       username,

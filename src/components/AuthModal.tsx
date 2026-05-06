@@ -62,6 +62,13 @@ export default function AuthModal({ isOpen, onClose, lang }: AuthModalProps) {
     setMessage(null);
 
     try {
+      const forbiddenUsernames = ["ADMIN", "DIZES", "MODERATOR", "SUPPORT", "SYSTEM"];
+      const upperName = username.toUpperCase().trim();
+      
+      if (isSignUp && (forbiddenUsernames.some(f => upperName.includes(f)) || upperName.includes("ZVIRUS"))) {
+        throw new Error(lang === "es" ? "Este nombre de usuario está reservado." : "This username is reserved.");
+      }
+
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
           email,
