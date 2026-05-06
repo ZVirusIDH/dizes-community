@@ -777,7 +777,18 @@ export default function Home() {
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} lang={lang} />
       <UploadModal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} lang={lang} />
       <DiceViewerModal isOpen={!!selectedPack} onClose={() => setSelectedPack(null)} pack={selectedPack} lang={lang} onDownload={incrementDownload} />
-      <DiceEditModal isOpen={!!diceToEdit} onClose={() => setDiceToEdit(null)} dice={diceToEdit} lang={lang} onUpdated={() => fetchDice()} />
+      {diceToEdit && (
+        <DiceEditModal 
+          isOpen={!!diceToEdit}
+          onClose={() => setDiceToEdit(null)}
+          dice={diceToEdit}
+          lang={lang}
+          isAdmin={isAdmin}
+          onUpdated={() => {
+            fetchDice();
+          }}
+        />
+      )}
     </div>
   );
 }

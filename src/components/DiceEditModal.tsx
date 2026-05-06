@@ -11,10 +11,13 @@ interface DiceEditModalProps {
   dice: any;
   lang: "es" | "en";
   onUpdated: () => void;
+  isAdmin?: boolean;
 }
 
-export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }: DiceEditModalProps) {
-  const [metadata, setMetadata] = useState({ name: "", tags: "", type: "", color: "", preview_face: "" });
+export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, isAdmin }: DiceEditModalProps) {
+  const [metadata, setMetadata] = useState({ name: "", tags: "", type: "", color: "", preview_face: "", status: "approved" });
+  const [jsonCode, setJsonCode] = useState("");
+  const [isAdvanced, setIsAdvanced] = useState(false);
   const [faces, setFaces] = useState<any[]>([]);
   const [selectedFaceIdx, setSelectedFaceIdx] = useState(-1);
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -40,8 +43,15 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
         tags: dice.tags?.[0] || "",
         type: dice.type || "D6",
         color: dice.color || "#3b82f6",
-        preview_face: dice.preview_face || ""
+        preview_face: dice.preview_face || "",
+        status: dice.status || "approved"
       });
+
+      if (dice.share_code) {
+        decodeBase64Gzip(dice.share_code).then(jsonStr => {
+           setJsonCode(jsonStr);
+        });
+      }
 
       if (dice.share_code) {
         decodeBase64Gzip(dice.share_code).then(jsonStr => {
@@ -70,6 +80,17 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
   const handleSave = async () => {
     setStatus("saving");
     try {
+      let finalShareCode = dice.share_code;
+      if (isAdvanced && isAdmin) {
+         // Re-encode JSON if changed
+         const uint8 = new TextEncoder().encode(jsonCode);
+         // @ts-ignore
+         const stream = new Blob([uint8]).stream().pipeThrough(new CompressionStream("gzip"));
+         const response = new Response(stream);
+         const buffer = await response.arrayBuffer();
+         finalShareCode = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      }
+
       const { error } = await supabase
         .from("dice_packs")
         .update({
@@ -78,7 +99,8 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
           type: metadata.type,
           color: metadata.color,
           preview_face: metadata.preview_face,
-          status: "pending", // Vuelve a revisión tras editar
+          status: metadata.status,
+          share_code: finalShareCode,
           updated_at: new Date().toISOString()
         })
         .eq("id", dice.id);
@@ -104,12 +126,21 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
           
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="relative bg-zinc-900 border border-white/10 w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-black tracking-tighter uppercase">{lang === "es" ? "Editar Dado" : "Edit Dice"}</h2>
+              <div className="flex flex-col">
+                <h2 className="text-2xl font-black tracking-tighter uppercase">{lang === "es" ? "Editar Dado" : "Edit Dice"}</h2>
+                {isAdmin && (
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => setIsAdvanced(false)} className={`text-[9px] font-bold px-2 py-1 rounded-full border ${!isAdvanced ? "bg-blue-500 border-blue-500" : "border-white/20 text-zinc-500"}`}>BÁSICO</button>
+                    <button onClick={() => setIsAdvanced(true)} className={`text-[9px] font-bold px-2 py-1 rounded-full border ${isAdvanced ? "bg-purple-500 border-purple-500" : "border-white/20 text-zinc-500"}`}>AVANZADO (JSON)</button>
+                  </div>
+                )}
+              </div>
               <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X className="w-6 h-6" /></button>
             </div>
 
             <div className="space-y-6">
-               <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] flex flex-col items-center">
+               {!isAdvanced ? (
+                 <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] flex flex-col items-center">
                   <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-xl font-black text-white shadow-xl relative overflow-hidden" style={{ backgroundColor: faces[selectedFaceIdx]?.color || metadata.color }}>
                     {(() => {
                       const content = faces[selectedFaceIdx]?.content || metadata.preview_face;
@@ -176,8 +207,37 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
                         ))}
                       </select>
                     </div>
+                    {isAdmin && (
+                      <div className="pt-4 border-t border-white/5 mt-4">
+                        <label className="text-[10px] text-zinc-500 font-bold uppercase ml-2 block mb-2 tracking-widest">{lang === "es" ? "Estado de Moderación" : "Moderation Status"}</label>
+                        <div className="flex gap-2">
+                          {["approved", "pending", "rejected"].map(s => (
+                            <button 
+                              key={s} 
+                              onClick={() => setMetadata({...metadata, status: s})}
+                              className={`flex-1 py-2 rounded-lg text-[9px] font-black uppercase transition-all border ${metadata.status === s ? "bg-white text-black border-white" : "bg-black/40 text-zinc-500 border-zinc-800"}`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                </div>
+               ) : (
+                 <div className="bg-black/40 border border-purple-500/30 p-4 rounded-2xl h-[400px] flex flex-col">
+                   <label className="text-[10px] text-purple-400 font-black uppercase mb-2 tracking-widest flex items-center gap-2">
+                     <span className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                     JSON MASTER EDITOR
+                   </label>
+                   <textarea 
+                     value={jsonCode}
+                     onChange={(e) => setJsonCode(e.target.value)}
+                     className="flex-1 bg-black/60 border border-zinc-800 rounded-xl p-4 text-[10px] font-mono text-zinc-300 focus:outline-none focus:border-purple-500 transition-colors resize-none"
+                   />
+                 </div>
+               )}
 
                <div className="flex gap-4">
                   <button onClick={onClose} className="flex-1 py-4 rounded-2xl bg-zinc-800 font-bold text-xs uppercase tracking-widest hover:bg-zinc-700 transition-colors">{lang === "es" ? "Cancelar" : "Cancel"}</button>
