@@ -85,7 +85,7 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const { data: profiles, error: pError } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+      const { data: profiles, error: pError } = await supabase.from("profiles").select("*").order("updated_at", { ascending: false });
       if (pError) throw pError;
 
       // Obtenemos conteo de dados por usuario
