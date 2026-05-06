@@ -111,11 +111,13 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
             <div className="space-y-6">
                <div className="bg-white/5 border border-white/5 p-6 rounded-[2rem] flex flex-col items-center">
                   <div className="w-16 h-16 rounded-2xl mb-4 flex items-center justify-center text-xl font-black text-white shadow-xl relative overflow-hidden" style={{ backgroundColor: faces[selectedFaceIdx]?.color || metadata.color }}>
-                    {(faces[selectedFaceIdx]?.content || metadata.preview_face)?.includes("<svg") ? (
-                      <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: faces[selectedFaceIdx]?.content || metadata.preview_face }} />
-                    ) : (
-                      <span>{faces[selectedFaceIdx]?.content || metadata.preview_face || metadata.type.replace("D", "")}</span>
-                    )}
+                    {(() => {
+                      const content = faces[selectedFaceIdx]?.content || metadata.preview_face;
+                      if (!content) return <span>{metadata.type.replace("D", "")}</span>;
+                      if (content.includes("<svg")) return <div className="w-10 h-10" dangerouslySetInnerHTML={{ __html: content }} />;
+                      if (content.startsWith("http")) return <img src={content} alt="Preview" className="w-full h-full object-contain p-1" />;
+                      return <span>{content}</span>;
+                    })()}
                   </div>
 
                   {faces.length > 0 && (
@@ -132,6 +134,8 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated }
                           >
                             {face.content.includes("<svg") ? (
                               <div className="w-6 h-6 pointer-events-none" dangerouslySetInnerHTML={{ __html: face.content }} />
+                            ) : face.content.startsWith("http") ? (
+                              <img src={face.content} alt="" className="w-full h-full object-contain p-0.5" />
                             ) : (
                               <span style={{ color: face.textColor || "#fff" }}>{face.content}</span>
                             )}
