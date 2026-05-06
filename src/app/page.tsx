@@ -695,10 +695,17 @@ export default function Home() {
                     {!showDeleted && (
                       <div className="flex gap-1 items-stretch mt-1">
                         <button 
-                          onClick={(e) => { e.stopPropagation(); incrementDownload(die.id, die.downloads, die.share_code); setSelectedPack(die); }} 
-                          className="flex-1 brand-gradient h-7 rounded-lg flex items-center justify-center"
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            incrementDownload(die.id, die.downloads, die.share_code);
+                            if (die.share_code) {
+                              window.location.href = `dizes://community?code=${encodeURIComponent(die.share_code)}`;
+                            }
+                          }} 
+                          className="flex-1 brand-gradient h-7 rounded-lg flex items-center justify-center transition-transform active:scale-95"
+                          title={lang === "es" ? "Abrir en App" : "Open in App"}
                         >
-                          <Download className="w-3 h-3 text-white" />
+                          <Download className="w-3.5 h-3.5 text-white" />
                         </button>
                         <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 h-7 rounded-lg border border-blue-500/20">
                           <span className="text-[9px] font-black text-blue-400">{die.downloads || 0}</span>
