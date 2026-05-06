@@ -55,22 +55,56 @@ const t = {
 };
 
 export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isTestUser, setIsTestUser }: ProfileModalProps) {
-  const [activeTab, setActiveTab] = useState<"data" | "uploads" | "deleted">("data");
+  const [activeTab, setActiveTab] = useState<"data" | "uploads" | "deleted" | "users">("data");
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [uploads, setUploads] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const dict = t[lang];
+  const dict = {
+    ...t[lang],
+    users: lang === "es" ? "Usuarios" : "Users",
+    diceCount: lang === "es" ? "Dados" : "Dice",
+    vip: "VIP",
+    setVip: lang === "es" ? "Hacer VIP" : "Make VIP",
+    removeVip: lang === "es" ? "Quitar VIP" : "Remove VIP"
+  };
 
   useEffect(() => {
     if (isOpen && user) {
-      loadProfile();
-      loadUploads();
+      if (activeTab === "data") loadProfile();
+      if (activeTab === "uploads" || activeTab === "deleted") loadUploads();
+      if (activeTab === "users" && isAdmin) loadUsers();
     }
   }, [isOpen, user, activeTab]);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const { data: profiles, error: pError } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+      if (pError) throw pError;
+
+      // Obtenemos conteo de dados por usuario
+      const { data: diceData, error: dError } = await supabase.from("dice_packs").select("user_id").is("deleted_at", null);
+      if (dError) throw dError;
+
+      const diceCounts = diceData.reduce((acc: any, curr: any) => {
+        acc[curr.user_id] = (acc[curr.user_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      setUsers(profiles.map(p => ({
+        ...p,
+        dice_count: diceCounts[p.id] || 0
+      })));
+    } catch (e) {
+      console.error("Error loading users:", e);
+    }
+    setLoading(false);
+  };
 
   const loadProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
@@ -141,6 +175,21 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
     if (!error) loadUploads();
   };
 
+  const toggleVip = async (targetUser: any) => {
+    const isVip = targetUser.max_published >= 60;
+    const newMax = isVip ? 30 : 60;
+    const newTrusted = !isVip; // Si lo hacemos VIP (newMax=60), es trusted.
+    
+    const { error } = await supabase.from("profiles").update({
+      max_published: newMax,
+      is_trusted: newTrusted
+    }).eq("id", targetUser.id);
+
+    if (!error) {
+      setUsers(prev => prev.map(u => u.id === targetUser.id ? { ...u, max_published: newMax, is_trusted: newTrusted } : u));
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -162,15 +211,17 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
               <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors"><X className="w-6 h-6" /></button>
             </div>
 
-            <div className="flex bg-black/40 border-b border-white/5">
-              <button onClick={() => setActiveTab("data")} className={`flex-1 py-4 text-[10px] font-black transition-all ${activeTab === "data" ? "text-blue-500 border-b-2 border-blue-500" : "text-zinc-500"}`}>{dict.editProfile}</button>
-              <button onClick={() => setActiveTab("uploads")} className={`flex-1 py-4 text-[10px] font-black transition-all ${activeTab === "uploads" ? "text-blue-500 border-b-2 border-blue-500" : "text-zinc-500"}`}>{dict.myUploads}</button>
-              {isAdmin && <button onClick={() => setActiveTab("deleted")} className={`flex-1 py-4 text-[10px] font-black transition-all ${activeTab === "deleted" ? "text-red-500 border-b-2 border-red-500" : "text-zinc-500"}`}>{dict.deletedContent}</button>}
+            <div className="flex bg-black/40 border-b border-white/5 overflow-x-auto scrollbar-hide">
+              <button onClick={() => setActiveTab("data")} className={`flex-1 min-w-[80px] py-4 text-[10px] font-black transition-all ${activeTab === "data" ? "text-blue-500 border-b-2 border-blue-500" : "text-zinc-500"}`}>{dict.editProfile}</button>
+              <button onClick={() => setActiveTab("uploads")} className={`flex-1 min-w-[80px] py-4 text-[10px] font-black transition-all ${activeTab === "uploads" ? "text-blue-500 border-b-2 border-blue-500" : "text-zinc-500"}`}>{dict.myUploads}</button>
+              {isAdmin && <button onClick={() => setActiveTab("users")} className={`flex-1 min-w-[80px] py-4 text-[10px] font-black transition-all ${activeTab === "users" ? "text-blue-500 border-b-2 border-blue-500" : "text-zinc-500"}`}>{dict.users}</button>}
+              {isAdmin && <button onClick={() => setActiveTab("deleted")} className={`flex-1 min-w-[80px] py-4 text-[10px] font-black transition-all ${activeTab === "deleted" ? "text-red-500 border-b-2 border-red-500" : "text-zinc-500"}`}>{dict.deletedContent}</button>}
             </div>
 
             <div className="flex-1 overflow-y-auto p-8">
               {activeTab === "data" ? (
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
+                  {/* ... (resto del formulario igual) ... */}
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-zinc-500 uppercase ml-2">{dict.username}</label>
                     <div className="relative">
@@ -228,6 +279,36 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                     </button>
                   </div>
                 </form>
+              ) : activeTab === "users" && isAdmin ? (
+                <div className="space-y-4">
+                  {loading ? (
+                    <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-blue-500" /></div>
+                  ) : (
+                    users.map(u => (
+                      <div key={u.id} className="bg-black/40 border border-white/5 p-4 rounded-2xl flex items-center justify-between group hover:border-white/10 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full brand-gradient flex items-center justify-center text-sm font-black shadow-lg overflow-hidden shrink-0">
+                            {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" /> : (u.username?.[0] || 'U')}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="font-bold text-sm truncate flex items-center gap-2">
+                              {u.username || 'User'}
+                              {u.max_published >= 60 && <span className="bg-amber-500 text-black text-[7px] px-1.5 py-0.5 rounded-full font-black">VIP</span>}
+                            </h4>
+                            <p className="text-[8px] font-bold text-zinc-500 uppercase truncate">{u.email}</p>
+                            <p className="text-[8px] font-black text-blue-500 uppercase mt-1">{u.dice_count} {dict.diceCount}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => toggleVip(u)}
+                          className={`px-3 py-2 rounded-xl text-[8px] font-black uppercase transition-all ${u.max_published >= 60 ? "bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500 hover:text-black" : "bg-white/5 border border-white/5 text-zinc-500 hover:bg-white/10"}`}
+                        >
+                          {u.max_published >= 60 ? dict.removeVip : dict.setVip}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
               ) : (
                 <div className="space-y-8">
                   {loading ? (

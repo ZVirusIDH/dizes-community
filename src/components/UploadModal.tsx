@@ -265,7 +265,7 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
         }
       }
 
-      const moderationStatus = (profile?.is_trusted || profile?.is_admin) ? "approved" : "pending";
+      const moderationStatus = (profile?.is_trusted || profile?.is_admin || (profile?.max_published || 0) >= 60) ? "approved" : "pending";
 
       let fileUrl = "";
       let shareCode = activeTab === "code" ? rawCode : null;
