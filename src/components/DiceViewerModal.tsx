@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Download, Copy, CheckCircle2, Loader2, Package, Smartphone } from "lucide-react";
+import { X, Download, Copy, CheckCircle2, Loader2, Package, Smartphone, Edit2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import JSZip from "jszip";
 
@@ -11,6 +11,9 @@ interface DiceViewerModalProps {
   pack: any | null;
   lang: "es" | "en";
   onDownload?: (id: string, current: number) => void;
+  user: any;
+  isAdmin: boolean;
+  onEdit: (dice: any) => void;
 }
 
 const decodeBase64Gzip = async (base64str: string): Promise<string> => {
@@ -29,7 +32,7 @@ const decodeBase64Gzip = async (base64str: string): Promise<string> => {
   }
 };
 
-export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownload }: DiceViewerModalProps) {
+export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownload, user, isAdmin, onEdit }: DiceViewerModalProps) {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -297,6 +300,14 @@ export default function DiceViewerModal({ isOpen, onClose, pack, lang, onDownloa
               {pack.share_code && (
                 <button onClick={copyCode} className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2">
                   {copied ? <CheckCircle2 className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+              )}
+              {(isAdmin || (user && pack.user_id === user.id)) && (
+                <button 
+                  onClick={() => { onEdit(pack); onClose(); }} 
+                  className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+                >
+                  <Edit2 className="w-4 h-4" />
                 </button>
               )}
             </div>

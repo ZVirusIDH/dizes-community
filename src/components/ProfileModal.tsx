@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, User, Camera, Loader2, Trash2, Calendar, Clock, CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import { X, User, Camera, Loader2, Trash2, Calendar, Clock, CheckCircle2, AlertCircle, Lock, Edit2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 
@@ -13,6 +13,7 @@ interface ProfileModalProps {
   isAdmin: boolean;
   isTestUser: boolean;
   setIsTestUser: (val: boolean) => void;
+  onEditDice: (dice: any) => void;
 }
 
 const t = {
@@ -54,7 +55,7 @@ const t = {
   }
 };
 
-export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isTestUser, setIsTestUser }: ProfileModalProps) {
+export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isTestUser, setIsTestUser, onEditDice }: ProfileModalProps) {
   const [activeTab, setActiveTab] = useState<"data" | "uploads" | "deleted" | "users">("data");
   const [username, setUsername] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -394,6 +395,15 @@ export default function ProfileModal({ isOpen, onClose, user, lang, isAdmin, isT
                                          title={lang === 'es' ? 'Cambiar Visibilidad' : 'Toggle Visibility'}
                                        >
                                          {item.is_published ? <CheckCircle2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                                       </button>
+                                     )}
+                                     {activeTab === "uploads" && (
+                                       <button 
+                                         onClick={() => { onEditDice(item); onClose(); }} 
+                                         className="p-2 bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white rounded-xl border border-blue-500/20 transition-all"
+                                         title={lang === 'es' ? 'Editar' : 'Edit'}
+                                       >
+                                         <Edit2 className="w-4 h-4" />
                                        </button>
                                      )}
                                      {activeTab === "uploads" ? (

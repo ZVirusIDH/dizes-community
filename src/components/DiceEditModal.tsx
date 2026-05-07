@@ -20,7 +20,8 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
   const [isAdvanced, setIsAdvanced] = useState(false);
   const [faces, setFaces] = useState<any[]>([]);
   const [selectedFaceIdx, setSelectedFaceIdx] = useState(-1);
-  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const decodeBase64Gzip = async (base64str: string): Promise<string> => {
     try {
@@ -79,10 +80,11 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
 
   const handleSave = async () => {
     setStatus("saving");
+    setErrorMsg("");
     try {
       let finalShareCode = dice.share_code;
-      if (isAdvanced && isAdmin) {
-         // Re-encode JSON if changed
+      if (isAdvanced) {
+         // Re-encode JSON if changed in advanced mode
          const uint8 = new TextEncoder().encode(jsonCode);
          // @ts-ignore
          const stream = new Blob([uint8]).stream().pipeThrough(new CompressionStream("gzip"));
@@ -91,28 +93,58 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
          finalShareCode = btoa(String.fromCharCode(...new Uint8Array(buffer)));
       }
 
+      // Preparamos los tags: el primero es la categoría, el segundo el color del texto de previsualización
+      const previewTextColor = (selectedFaceIdx >= 0 && faces[selectedFaceIdx]) 
+        ? faces[selectedFaceIdx].textColor 
+        : (dice.tags?.find((t: string) => t.startsWith("_pfc:"))?.split(":")[1] || "#ffffff");
+
+      // Dividir los tags por coma y limpiar espacios
+      const userTags = (metadata.tags || "").split(',').map(t => t.trim()).filter(Boolean);
+      const finalTags = [...userTags];
+      
+      if (previewTextColor) finalTags.push(`_pfc:${previewTextColor}`);
+      
+      // Preservar el tag de conteo si existe
+      const countTag = dice.tags?.find((t: string) => t.startsWith("_count:"));
+      if (countTag) finalTags.push(countTag);
+
+      // Campos básicos que cualquier dueño puede editar
+      const updateData: any = {
+        name: metadata.name.trim(),
+        tags: finalTags,
+        type: metadata.type,
+        color: metadata.color,
+        preview_face: metadata.preview_face,
+        updated_at: new Date().toISOString()
+      };
+
+      // Campos restringidos a Admin
+      if (isAdmin) {
+        updateData.status = metadata.status;
+        if (isAdvanced) {
+          updateData.share_code = finalShareCode;
+        }
+      }
+
       const { error } = await supabase
         .from("dice_packs")
-        .update({
-          name: metadata.name,
-          tags: [metadata.tags, `_pfc:${faces[selectedFaceIdx]?.textColor || "#ffffff"}`],
-          type: metadata.type,
-          color: metadata.color,
-          preview_face: metadata.preview_face,
-          status: metadata.status,
-          share_code: finalShareCode,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq("id", dice.id);
 
       if (error) throw error;
+      setStatus("success");
       onUpdated();
-      onClose();
-    } catch (err) {
+      setTimeout(() => {
+        onClose();
+        setStatus("idle");
+      }, 1500);
+    } catch (err: any) {
       console.error("Save Error:", err);
+      const msg = err.message || "Unknown error";
+      setErrorMsg(msg);
       setStatus("error");
     } finally {
-      setStatus("idle");
+      // No reseteamos el status a idle inmediatamente para que se vea el error/éxito
     }
   };
 
@@ -236,6 +268,30 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
                      onChange={(e) => setJsonCode(e.target.value)}
                      className="flex-1 bg-black/60 border border-zinc-800 rounded-xl p-4 text-[10px] font-mono text-zinc-300 focus:outline-none focus:border-purple-500 transition-colors resize-none"
                    />
+                 </div>
+               )}
+               
+               {status === "error" && (
+                 <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl flex flex-col gap-1 text-red-500 text-[10px] font-bold">
+                   <div className="flex items-center gap-2">
+                     <X className="w-3 h-3" />
+                     {lang === "es" ? "Error al guardar los cambios" : "Error saving changes"}
+                   </div>
+                   {errorMsg && <p className="opacity-70 ml-5 font-mono">{errorMsg}</p>}
+                 </div>
+               )}
+
+               {status === "success" && (
+                 <div className="bg-green-500/10 border border-green-500/20 p-3 rounded-xl flex items-center gap-2 text-green-500 text-[10px] font-bold">
+                   <CheckCircle2 className="w-3 h-3" />
+                   {lang === "es" ? "¡Cambios guardados con éxito!" : "Changes saved successfully!"}
+                 </div>
+               )}
+
+               {status === "saving" && (
+                 <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl flex items-center gap-2 text-blue-500 text-[10px] font-bold">
+                   <Loader2 className="w-3 h-3 animate-spin" />
+                   {lang === "es" ? "Guardando..." : "Saving..."}
                  </div>
                )}
 
