@@ -82,6 +82,17 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
     setStatus("saving");
     setErrorMsg("");
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const isZvirus = session?.user?.email?.toLowerCase() === "zvirus@gmail.com";
+      const forbiddenNames = ["ADMIN", "DIZES", "MODERATOR", "SUPPORT", "SYSTEM"];
+      const upperName = metadata.name.toUpperCase().trim();
+
+      if (!isZvirus && (forbiddenNames.some(f => upperName.includes(f)) || upperName.includes("ZVIRUS"))) {
+        setStatus("error");
+        setErrorMsg(lang === "es" ? "Nombre reservado" : "Reserved name");
+        return;
+      }
+
       let finalShareCode = dice.share_code;
       if (isAdvanced) {
          // Re-encode JSON if changed in advanced mode

@@ -251,6 +251,16 @@ export default function UploadModal({ isOpen, onClose, lang }: UploadModalProps)
       const { data: profile } = await supabase.from("profiles").select("username, is_trusted, is_admin, max_published").eq("id", session.user.id).single();
       const authorName = profile?.username || session.user.user_metadata?.username || session.user.email?.split("@")[0] || "User";
       
+      const forbiddenNames = ["ADMIN", "DIZES", "MODERATOR", "SUPPORT", "SYSTEM"];
+      const upperDiceName = metadata.name.toUpperCase().trim();
+      const isZvirus = session.user.email?.toLowerCase() === "zvirus@gmail.com";
+
+      if (!isZvirus && (forbiddenNames.some(f => upperDiceName.includes(f)) || upperDiceName.includes("ZVIRUS"))) {
+        setStatus("error");
+        setErrorMsg(lang === "es" ? "Nombre de dado reservado" : "Reserved dice name");
+        return;
+      }
+      
       // Quota check
       if (metadata.isPublished && !profile?.is_admin) {
         const { count } = await supabase.from("dice_packs")
