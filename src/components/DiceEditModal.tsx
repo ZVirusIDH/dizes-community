@@ -114,8 +114,7 @@ export default function DiceEditModal({ isOpen, onClose, dice, lang, onUpdated, 
         tags: finalTags,
         type: metadata.type,
         color: metadata.color,
-        preview_face: metadata.preview_face,
-        updated_at: new Date().toISOString()
+        preview_face: metadata.preview_face
       };
 
       // Campos restringidos a Admin
