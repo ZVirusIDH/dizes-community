@@ -1,5 +1,13 @@
 # Dizes Community Agent Status
 
+## [2026-05-18] - v1.19.7 (LumiMine Privacy Policy & Routing)
+**Agente**: Antigravity
+**Cambios Realizados**:
+- **Domain & Subdomain Routing**: Configurado `src/middleware.ts` para capturar peticiones dirigidas al subdominio `lumimine.zetavirus.com` (y `lumimine.localhost` en desarrollo) y reescribirlas de forma invisible al cliente a la página oculta `/lumimine-privacy`. Esto permite servir la política de privacidad de LumiMine de forma directa en el dominio principal de la app sin que haya ningún acceso directo ni botón en la web de Dizes.
+- **Privacy Page (LumiMine)**: Creada la página de política de privacidad nativa e interactiva en `/lumimine-privacy` (`src/app/lumimine-privacy/page.tsx`) basada en el archivo `lumimine.privacy` recuperado de `scratch/Orapa`.
+  - Diseñada con estética premium de LumiMine (colores cian translúcidos, fondos slate ultra-oscuros, glows y animaciones sutiles).
+  - Incluye soporte interactivo bilingüe (Español/Inglés) con control de estado fluido.
+
 ## [2026-05-18] - v1.19.6 (Privacy Policy Compliance Overhaul)
 **Agente**: Antigravity
 **Cambios Realizados**:
