@@ -1,5 +1,14 @@
 # Dizes Community Agent Status
 
+## [2026-05-18] - v1.19.6 (Privacy Policy Compliance Overhaul)
+**Agente**: Antigravity
+**Cambios Realizados**:
+- **Compliance (Privacy Policy)**: Creada una página de política de privacidad nativa, elegante, totalmente autohospedada e interactiva en `/privacy` (`src/app/privacy/page.tsx`). Esto cumple al 100% con los requisitos de Google Play Store al ser pública, no editable, no permitir comentarios y ser bot-friendly.
+- **Routing**: Creada una ruta alternativa de compatibilidad en `/privacy-policy` (`src/app/privacy-policy/page.tsx`) que importa el mismo componente para garantizar la redundancia de enlace.
+- **UI/UX Integration**: 
+  - Añadido un selector interactivo bilingüe (Español/Inglés) con soporte de estados y animaciones.
+  - Añadido enlace directo a la política de privacidad en el pie de página de la comunidad web (`src/app/page.tsx`) junto al copyright para un acceso transparente y profesional.
+
 ## [2026-05-05] - DX Support & UI Refinement
 **Agente**: Antigravity
 **Cambios Realizados**:

@@ -770,6 +770,14 @@ export default function Home() {
               {lang === "es" ? "Siguiente" : "Next"}
             </button>
           </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-zinc-500 text-[10px] font-bold">
+            <span>{t.footerText}</span>
+            <span className="hidden sm:inline">•</span>
+            <a href="/privacy" className="hover:text-blue-400 transition-colors uppercase tracking-widest">
+              {lang === "es" ? "Política de Privacidad" : "Privacy Policy"}
+            </a>
+          </div>
         </div>
       </main>
 
