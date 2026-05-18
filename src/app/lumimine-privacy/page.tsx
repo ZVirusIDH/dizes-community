@@ -85,11 +85,11 @@ export default function LumiMinePrivacy() {
             <p className="text-zinc-300 text-base leading-relaxed font-medium">
               {lang === "es" ? (
                 <>
-                  En <strong className="text-white">Zetapp</strong>, representada por Ruben, nos tomamos muy en serio tu privacidad. Esta política de privacidad describe cómo la aplicación móvil <strong className="text-[#00e5ff]">LumiMine</strong> recopila, utiliza y protege tu información.
+                  En <strong className="text-white">Zetapp</strong>, representada por ZVirus, nos tomamos muy en serio tu privacidad. Esta política de privacidad describe cómo la aplicación móvil <strong className="text-[#00e5ff]">LumiMine</strong> recopila, utiliza y protege tu información.
                 </>
               ) : (
                 <>
-                  At <strong className="text-white">Zetapp</strong>, represented by Ruben, we take your privacy very seriously. This privacy policy describes how the mobile application <strong className="text-[#00e5ff]">LumiMine</strong> collects, uses, and protects your information.
+                  At <strong className="text-white">Zetapp</strong>, represented by ZVirus, we take your privacy very seriously. This privacy policy describes how the mobile application <strong className="text-[#00e5ff]">LumiMine</strong> collects, uses, and protects your information.
                 </>
               )}
             </p>
