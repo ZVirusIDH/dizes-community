@@ -1,5 +1,15 @@
 # Dizes Community Agent Status
 
+## [2026-05-27] - Supabase API Security Compliance (Database Patch)
+**Agente**: Antigravity
+**Cambios Realizados**:
+- **Database Compliance**: Guiado y verificado con el usuario la aplicación del script SQL `supabase_security_patch.sql` para conceder privilegios explícitos `GRANT` (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, `ALL`) a los roles `anon`, `authenticated` y `service_role` en las tablas públicas de la base de datos de producción (`profiles`, `dice_packs`). Esto previene futuros errores de autorización (código 42501) debido al cambio de políticas globales de Supabase de mayo/octubre de 2026.
+
+## [2026-05-20] - Cleanup & Optimization (Mantenimiento)
+**Agente**: Antigravity
+**Cambios Realizados**:
+- **Cleanup**: Verificada la estructura del portal web y limpieza de cachés y temporales del proyecto Next.js (`.next/`) para optimizar almacenamiento.
+
 ## [2026-05-18] - v1.19.7 (LumiMine Privacy Policy & Routing)
 **Agente**: Antigravity
 **Cambios Realizados**:
